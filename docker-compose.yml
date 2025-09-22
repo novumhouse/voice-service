@@ -1,0 +1,94 @@
+# Voice Service Docker Compose Configuration
+
+version: '3.8'
+
+services:
+  voice-service:
+    build: .
+    container_name: voice-service
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
+      - AGENT_1_ID=${AGENT_1_ID}
+      - AGENT_2_ID=${AGENT_2_ID}
+      - AGENT_3_ID=${AGENT_3_ID}
+      - AGENT_4_ID=${AGENT_4_ID}
+      - VOICE_TIME_LIMIT=${VOICE_TIME_LIMIT:-600}
+      - API_KEY=${API_KEY}
+      - REKEEP_API_TOKEN=${REKEEP_API_TOKEN}
+      - REKEEP_API_BASE_URL=${REKEEP_API_BASE_URL}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - voice-network
+    
+  # Optional: Redis for session storage (if needed)
+  redis:
+    image: redis:7-alpine
+    container_name: voice-service-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    networks:
+      - voice-network
+    profiles:
+      - with-redis
+
+  # Optional: PostgreSQL for persistent storage (if needed)
+  postgres:
+    image: postgres:15-alpine
+    container_name: voice-service-db
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=voiceservice
+      - POSTGRES_USER=voiceservice
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-changeme123}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+    networks:
+      - voice-network
+    profiles:
+      - with-db
+
+  # Nginx reverse proxy (optional)
+  nginx:
+    image: nginx:alpine
+    container_name: voice-service-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - ./ssl:/etc/nginx/ssl
+    depends_on:
+      - voice-service
+    restart: unless-stopped
+    networks:
+      - voice-network
+    profiles:
+      - with-proxy
+
+volumes:
+  redis_data:
+  postgres_data:
+
+networks:
+  voice-network:
+    driver: bridge
