@@ -53,6 +53,21 @@ router.get('/sessions/active', authenticateUser, voiceController.getUserActiveSe
 router.get('/health', voiceController.healthCheck.bind(voiceController));
 
 /**
+ * Server Tools Routes (for ElevenLabs agents)
+ * These endpoints are called by ElevenLabs agents via Server Tools
+ * No authentication required as they're called from ElevenLabs servers
+ */
+
+// GET /api/voice/tools/user-context/:conversationId - Get user context for conversation
+router.get('/tools/user-context/:conversationId', voiceController.getUserContext.bind(voiceController));
+
+// POST /api/voice/tools/decrypt - Decrypt encrypted user context
+router.post('/tools/decrypt', voiceController.decryptUserContext.bind(voiceController));
+
+// POST /api/voice/tools/authenticated-call/:conversationId - Make authenticated API calls
+router.post('/tools/authenticated-call/:conversationId', voiceController.makeAuthenticatedCall.bind(voiceController));
+
+/**
  * API Documentation Route
  */
 router.get('/', (req, res) => {
@@ -76,6 +91,10 @@ router.get('/', (req, res) => {
       },
       health: {
         'GET /api/voice/health': 'Service health check'
+      },
+      serverTools: {
+        'GET /api/voice/tools/user-context/:conversationId': 'Get user context for ElevenLabs agents',
+        'POST /api/voice/tools/authenticated-call/:conversationId': 'Make authenticated API calls for agents'
       }
     },
     authentication: {

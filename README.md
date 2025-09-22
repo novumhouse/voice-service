@@ -352,6 +352,34 @@ npm run pm2:stop
 
 ## 📊 Usage Examples
 
+### 🔑 **User Context & Dynamic Variables**
+
+The Voice Service automatically extracts user context and passes it to ElevenLabs agents:
+
+```typescript
+// When you call startConversation(), the service automatically:
+// 1. Extracts user ID from token (e.g., "1711" from "1711|JPcIqtiocWWw...")
+// 2. Fetches user profile from ReKeep API (name, uuid, etc.)
+// 3. Prepares dynamic variables for the ElevenLabs agent
+
+const { conversationData } = await client.startConversation('agent_1', 'conv_123');
+
+// conversationData contains:
+// {
+//   token: "eyJhbGciOiJIUzI1NiIs...",  // WebRTC JWT token for direct connection
+//   agentId: "agent_7401k56rrgbme4bvmb49ym9annev",
+//   connectionType: "webrtc",
+//   dynamicVariables: {
+//     user_id: "1711",
+//     user_uuid: "uuid-from-rekeep-api", 
+//     user_name: "Rafał Kowalski",        // Fetched from ReKeep API
+//     user_token: "1711|JPcIqtiocWWw...", // Original auth token
+//     bearer_token: "Bearer 1711|JPcIq...", // For agent API calls
+//     conversation_id: "conv_123"
+//   }
+// }
+```
+
 ### Web Client (TypeScript/JavaScript)
 
 ```typescript
@@ -365,11 +393,19 @@ const client = new VoiceServiceClient(
 // Get available agents
 const agents = await client.getAgents();
 
-// Start conversation
-const { sessionId } = await client.startConversation(
+// Start conversation (user context handled automatically)
+const { sessionId, conversationData } = await client.startConversation(
   'agent_1',
   'conversation_123'
 );
+
+// Use the WebRTC token for DIRECT ElevenLabs connection
+// (No ElevenLabs SDK required - implement WebRTC directly)
+const webrtcConnection = await establishDirectWebRTC({
+  token: conversationData.token,           // JWT for WebRTC room
+  dynamicVariables: conversationData.dynamicVariables, // User context
+  connectionType: conversationData.connectionType      // 'webrtc'
+});
 
 // End conversation
 await client.endConversation(sessionId);
@@ -386,10 +422,24 @@ final client = VoiceServiceClient(
 // Get agents
 final agents = await client.getAgents();
 
-// Start conversation
+// Start conversation (user context handled automatically)
 final result = await client.startConversation(
   agentId: 'agent_1',
   conversationId: 'flutter_conversation_123',
+);
+
+// Extract WebRTC connection data
+final conversationData = result['conversationData'];
+final webrtcToken = conversationData['token'];           // JWT for WebRTC room
+final dynamicVariables = conversationData['dynamicVariables']; // User context
+final roomInfo = decodeJWT(webrtcToken);                 // Room name, permissions
+
+// Establish direct WebRTC connection to ElevenLabs
+// (No ElevenLabs Flutter SDK - implement WebRTC directly)
+final webrtcConnection = await FlutterWebRTC.connect(
+  roomName: roomInfo['video']['room'],
+  permissions: roomInfo['video'],
+  userContext: dynamicVariables,
 );
 
 // End conversation

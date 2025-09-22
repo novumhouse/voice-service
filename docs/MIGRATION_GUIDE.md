@@ -60,17 +60,43 @@ const startElevenLabsConversation = async (confirmedUser?: User) => {
     const agentId = 'agent_1'; // Or let user choose
     const conversationId = getConversationId();
     
-    // Start conversation via Voice Service API
+    // Start conversation via Voice Service API (user context handled automatically)
     const { sessionId, conversationData } = await voiceServiceClient.startConversation(
       agentId,
       conversationId
     );
 
-    // Start ElevenLabs WebRTC session with returned data
+    // conversationData now contains:
+    // - token: WebRTC JWT token for direct connection
+    // - dynamicVariables: User context (name, uuid, etc.) automatically fetched
+    console.log("🔍 User context for agent:", conversationData.dynamicVariables);
+    // {
+    //   user_id: "1711",
+    //   user_uuid: "uuid-from-rekeep",
+    //   user_name: "Rafał Kowalski",  // Automatically fetched from ReKeep API
+    //   user_token: "1711|JPcIqtiocWWw...",
+    //   bearer_token: "Bearer 1711|JPcIq...",
+    //   conversation_id: "conversation_123"
+    // }
+
+    // OPTION A: Using ElevenLabs SDK (Web only)
     const elevenLabsConversationId = await conversation.startSession({
-      conversationToken: conversationData.token,
-      connectionType: conversationData.connectionType,
-      dynamicVariables: conversationData.dynamicVariables
+      conversationToken: conversationData.token,        // WebRTC JWT token
+      connectionType: conversationData.connectionType, // 'webrtc'
+      dynamicVariables: conversationData.dynamicVariables // User context
+    });
+
+    // OPTION B: Direct WebRTC (Universal - Web, Flutter, Mobile)
+    // Decode JWT token to get WebRTC room info
+    const tokenPayload = JSON.parse(atob(conversationData.token.split('.')[1]));
+    const roomName = tokenPayload.video.room;
+    const permissions = tokenPayload.video;
+    
+    // Establish direct WebRTC connection without SDK
+    const webrtcConnection = await establishDirectWebRTC({
+      roomName: roomName,
+      permissions: permissions,
+      userContext: conversationData.dynamicVariables
     });
 
     console.log("✅ Started ElevenLabs conversation:", elevenLabsConversationId);
@@ -244,9 +270,12 @@ flutter run
 | 195-line token generation API | ✅ Single API call |
 | 94-line conversation start logic | ✅ 15-line simplified logic |
 | Hardcoded single agent | ✅ 4 selectable agents |
-| Web-only support | ✅ Multi-client support |
+| Web-only support | ✅ Multi-client support (Web, Flutter, Mobile) |
 | Complex usage tracking | ✅ Centralized usage management |
 | Tightly coupled code | ✅ Clean separation of concerns |
+| Manual user context handling | ✅ Automatic user profile fetching |
+| ElevenLabs SDK dependency | ✅ Direct WebRTC option (no SDK required) |
+| Limited to Web SDK | ✅ Universal WebRTC implementation |
 
 ## 🚨 Common Migration Issues
 

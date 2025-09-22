@@ -25,7 +25,7 @@ class AgentConfigManager {
       {
         id: 'agent_1',
         agentId: process.env.AGENT_1_ID || 'agent_7401k56rrgbme4bvmb49ym9annev',
-        name: 'Support Agent Florek',
+        name: 'Main Agent',
         description: 'Primary customer support agent',
         language: 'Polish',
         specialization: 'customer_support',
@@ -34,7 +34,7 @@ class AgentConfigManager {
       {
         id: 'agent_2', 
         agentId: process.env.AGENT_2_ID || 'agent_0801k4z2a4cdfz2tms20kdyvav1a',
-        name: 'Diet Expert Agent',
+        name: 'Miły Agent',
         description: 'Specialized in dietary consultations',
         language: 'Polish',
         specialization: 'diet_consultation',
@@ -43,7 +43,7 @@ class AgentConfigManager {
       {
         id: 'agent_3',
         agentId: process.env.AGENT_3_ID || 'agent_0801k4z2a4cdfz2tms20kdyvav1a',
-        name: 'Sales Agent',
+        name: 'Inteligentny Agent',
         description: 'Sales and product recommendations',
         language: 'Polish', 
         specialization: 'sales',
@@ -52,7 +52,7 @@ class AgentConfigManager {
       {
         id: 'agent_4',
         agentId: process.env.AGENT_4_ID || 'agent_0801k4z2a4cdfz2tms20kdyvav1a',
-        name: 'Technical Support Agent',
+        name: 'Wesoły Agent',
         description: 'Technical support and troubleshooting',
         language: 'Polish',
         specialization: 'technical_support',

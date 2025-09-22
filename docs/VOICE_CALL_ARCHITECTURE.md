@@ -57,39 +57,105 @@ const { sessionId, conversationData } = await voiceServiceClient.startConversati
 
 // conversationData contains:
 // {
-//   token: "webrtc_token_from_elevenlabs",
+//   token: "eyJhbGciOiJIUzI1NiIs...",  // WebRTC JWT token (NOT user data)
 //   agentId: "agent_7401k56rrgbme4bvmb49ym9annev", 
 //   connectionType: "webrtc",
-//   dynamicVariables: {
-//     user_id: "rafal",
-//     user_name: "Rafał",
-//     user_token: "1711|...",
-//     bearer_token: "Bearer 1711|...",
+//   dynamicVariables: {              // User context for ElevenLabs agent
+//     user_id: "1711",              // Extracted from auth token
+//     user_uuid: "uuid-123-456",    // Fetched from ReKeep API
+//     user_name: "Rafał Kowalski",  // Fetched from ReKeep API
+//     user_token: "1711|JPcIqtiocWWw0XUDu94YsyaoVw3n6ZST50n9rxtJ90e4e4f6",
+//     bearer_token: "Bearer 1711|JPcIqtiocWWw0XUDu94YsyaoVw3n6ZST50n9rxtJ90e4e4f6",
 //     conversation_id: "conversation_123"
 //   }
 // }
+```
+
+### **🔍 Understanding the WebRTC Token**
+
+The `conversationData.token` is a **JWT token for WebRTC room access**, not user data:
+
+```typescript
+// Decode the JWT token to understand its structure:
+const tokenPayload = JSON.parse(atob(conversationData.token.split('.')[1]));
+
+// Token contains WebRTC room information:
+// {
+//   "name": "user_agent_7401k56rrgbme4bvmb49ym9annev_conv_xxx",
+//   "video": {
+//     "roomJoin": true,
+//     "room": "room_agent_7401k56rrgbme4bvmb49ym9annev_conv_xxx", // WebRTC room name
+//     "canPublish": true,      // Can send audio
+//     "canSubscribe": true,    // Can receive audio
+//     "canPublishData": true   // Can send data
+//   },
+//   "sub": "user_agent_7401k56rrgbme4bvmb49ym9annev_conv_xxx",
+//   "iss": "APIKeyExternal",   // Issued by ElevenLabs
+//   "nbf": 1758537574,         // Valid from timestamp
+//   "exp": 1758538474          // Expires after 15 minutes
+// }
+```
+
+### **🔄 User Context Flow**
+
+```typescript
+// How user context flows to ElevenLabs agent:
+
+// 1. Voice Service extracts user info from auth token
+const userId = extractUserIdFromToken(userToken);        // "1711"
+
+// 2. Voice Service fetches user profile from ReKeep API (optional)
+const userProfile = await fetchUserProfile(userToken);   // { uuid: "...", client_profile: { first_name: "Rafał" } }
+
+// 3. Voice Service prepares dynamic variables for ElevenLabs agent
+const dynamicVariables = {
+  user_id: userId,                                        // "1711"
+  user_uuid: userProfile?.uuid || userId,                // UUID from ReKeep or fallback to user ID
+  user_name: userProfile?.client_profile?.first_name || "User", // Name from ReKeep or fallback
+  user_token: userToken,                                  // Original auth token
+  bearer_token: `Bearer ${userToken}`,                   // For agent API calls back to your system
+  conversation_id: conversationId                         // Unique conversation identifier
+};
+
+// 4. ElevenLabs agent receives these variables and can use them for:
+//    - Personalized responses ("Hello Rafał!")
+//    - API calls back to your system using bearer_token
+//    - Context-aware conversations
 ```
 
 ### **Phase 2: Direct WebRTC Connection**
 
 ```typescript
 // 2. Client connects DIRECTLY to ElevenLabs WebRTC
-const conversation = new Conversation();
 
+// OPTION A: Using ElevenLabs SDK (Web only)
+const conversation = new Conversation();
 const elevenLabsSessionId = await conversation.startSession({
-  conversationToken: conversationData.token,        // From Voice Service
+  conversationToken: conversationData.token,        // WebRTC JWT token
   connectionType: 'webrtc',                         // Direct connection
-  dynamicVariables: conversationData.dynamicVariables,
+  dynamicVariables: conversationData.dynamicVariables, // User context
   
-  // DIRECT connection to ElevenLabs - no proxy
   onConnect: () => {
     console.log('🎤 DIRECT WebRTC connection established');
   },
   
   onMessage: (message) => {
     console.log('🔊 Real-time audio message received');
-    // Audio processed in real-time, directly from ElevenLabs
   }
+});
+
+// OPTION B: Direct WebRTC Implementation (Web + Flutter + Mobile)
+// For when ElevenLabs SDK is not available (Flutter, etc.)
+const tokenPayload = JSON.parse(atob(conversationData.token.split('.')[1]));
+const roomName = tokenPayload.video.room;
+const permissions = tokenPayload.video;
+
+// Implement WebRTC connection directly
+const webrtcConnection = await establishDirectWebRTC({
+  roomName: roomName,                               // From JWT token
+  permissions: permissions,                         // From JWT token
+  userContext: conversationData.dynamicVariables,  // User variables for agent
+  elevenLabsWebRTCEndpoint: 'wss://api.elevenlabs.io/webrtc' // ElevenLabs WebRTC endpoint
 });
 ```
 

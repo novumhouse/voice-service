@@ -109,12 +109,12 @@ class VoiceController {
         metadata
       });
 
-      // Start ElevenLabs conversation
-      const conversationData = await elevenLabsService.startConversation({
+      // Start ElevenLabs conversation with OVERRIDES (BEST APPROACH)
+      const conversationData = await elevenLabsService.startConversationWithOverrides({
         agentId,
         userId: user.id,
         userName: user.name,
-        userToken: user.token,
+        userToken: user.token,    // Used for overrides - embedded in WebRTC token
         conversationId,
         userUuid: user.uuid
       });
@@ -122,15 +122,21 @@ class VoiceController {
       // Update session with ElevenLabs conversation ID
       sessionManager.updateSessionWithElevenLabsId(session.id, conversationData.token);
 
+      // Return response with overrides for client to apply when starting session
       res.status(201).json({
         success: true,
         data: {
           sessionId: session.id,
-          conversationData,
+          conversationData: {
+            token: conversationData.token,           // ✅ Standard WebRTC token
+            agentId: conversationData.agentId,       // ✅ Agent ID
+            connectionType: conversationData.connectionType, // ✅ Connection type
+            overrides: conversationData.overrides   // ✅ Overrides for client to apply
+          },
           session: {
             id: session.id,
-            userId: session.userId,
-            agentId: session.agentId,
+            userId: session.userId,   // Safe to show
+            agentId: session.agentId, // Safe to show
             status: session.status,
             startTime: session.startTime
           }
@@ -356,6 +362,164 @@ class VoiceController {
       res.status(503).json({
         success: false,
         error: 'Health check failed',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
+  /**
+   * Server Tools endpoint: Get user context for ElevenLabs agents
+   * This endpoint is called by ElevenLabs agents via Server Tools
+   * when they need user information during conversations
+   */
+  public async getUserContext(req: Request, res: Response): Promise<void> {
+    try {
+      const { conversationId } = req.params;
+      
+      if (!conversationId) {
+        res.status(400).json({
+          success: false,
+          error: 'Missing conversationId parameter'
+        });
+        return;
+      }
+
+      // Get user context from ElevenLabs service
+      const userContext = elevenLabsService.getUserContextForConversation(conversationId);
+      
+      if (!userContext) {
+        res.status(404).json({
+          success: false,
+          error: 'User context not found for conversation',
+          conversationId
+        });
+        return;
+      }
+
+      // Return safe user context (excluding sensitive tokens)
+      const safeContext = {
+        user_name: userContext.user_name,
+        user_id: userContext.user_id,
+        user_uuid: userContext.user_uuid,
+        conversation_id: userContext.conversation_id
+        // bearer_token and user_token excluded for security
+      };
+
+      console.log(`🔧 Server Tools: Provided user context for conversation ${conversationId}`);
+
+      res.status(200).json({
+        success: true,
+        data: {
+          userContext: safeContext,
+          message: `Hello ${userContext.user_name}! I have your context now.`
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Error getting user context for Server Tools:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get user context',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
+  /**
+   * Server Tools endpoint: Decrypt user context for ElevenLabs agents
+   * This endpoint decrypts the encrypted user context sent by clients
+   */
+  public async decryptUserContext(req: Request, res: Response): Promise<void> {
+    try {
+      const { encryptedData } = req.body;
+      
+      if (!encryptedData) {
+        res.status(400).json({
+          success: false,
+          error: 'Missing encryptedData parameter'
+        });
+        return;
+      }
+
+      // Decrypt the user context
+      const decryptedData = elevenLabsService.decryptUserData(encryptedData);
+
+      console.log(`🔓 Server Tools: Decrypted user context for conversation`);
+
+      res.status(200).json({
+        success: true,
+        data: {
+          decryptedContext: decryptedData,
+          message: `Decrypted user context successfully`
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Error decrypting user context for Server Tools:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to decrypt user context',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
+  /**
+   * Server Tools endpoint: Make authenticated API calls for ElevenLabs agents
+   * This endpoint allows agents to make API calls using stored user tokens
+   */
+  public async makeAuthenticatedCall(req: Request, res: Response): Promise<void> {
+    try {
+      const { conversationId } = req.params;
+      const { endpoint, method = 'GET', data } = req.body;
+      
+      if (!conversationId || !endpoint) {
+        res.status(400).json({
+          success: false,
+          error: 'Missing required parameters: conversationId, endpoint'
+        });
+        return;
+      }
+
+      // Get user context with tokens
+      const userContext = elevenLabsService.getUserContextForConversation(conversationId);
+      
+      if (!userContext) {
+        res.status(404).json({
+          success: false,
+          error: 'User context not found for conversation'
+        });
+        return;
+      }
+
+      // Make authenticated API call using stored bearer token
+      const response = await fetch(endpoint, {
+        method,
+        headers: {
+          'Authorization': userContext.bearer_token,
+          'Content-Type': 'application/json',
+        },
+        body: data ? JSON.stringify(data) : undefined,
+      });
+
+      const result = await response.json();
+
+      console.log(`🔧 Server Tools: Made authenticated API call for conversation ${conversationId} to ${endpoint}`);
+
+      res.status(200).json({
+        success: true,
+        data: {
+          response: result,
+          status: response.status,
+          endpoint
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Error making authenticated API call for Server Tools:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to make authenticated API call',
         details: error instanceof Error ? error.message : 'Unknown error'
       });
     }

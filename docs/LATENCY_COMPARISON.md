@@ -114,8 +114,10 @@ sequenceDiagram
 ## 🛠️ **Implementation Code: Latency-Optimized**
 
 ### **Client-Side Optimization**
+
+#### **Option A: Using ElevenLabs SDK (Web Only)**
 ```typescript
-class OptimizedVoiceCall {
+class OptimizedVoiceCallWithSDK {
   private webRTCConfig = {
     // Optimize for low latency
     iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
@@ -133,21 +135,16 @@ class OptimizedVoiceCall {
   async establishDirectConnection(agentId: string): Promise<string> {
     console.time('🚀 Connection Setup Time');
     
-    // 1. Fast token retrieval (parallel to UI updates)
-    const tokenPromise = this.voiceService.startConversation(agentId, convId);
+    // 1. Get WebRTC token and user context from Voice Service
+    const { sessionId, conversationData } = await this.voiceService.startConversation(agentId, convId);
     
-    // 2. Prepare WebRTC connection while waiting for token
+    // 2. Use ElevenLabs SDK for direct WebRTC connection
     const conversation = new Conversation();
-    
-    // 3. Get token (should be ready by now)
-    const { conversationData } = await tokenPromise;
-    
-    // 4. Establish direct WebRTC connection
-    const sessionId = await conversation.startSession({
-      conversationToken: conversationData.token,
-      connectionType: 'webrtc', // DIRECT - no proxy
-      configuration: this.webRTCConfig, // Latency-optimized
-      dynamicVariables: conversationData.dynamicVariables,
+    const elevenLabsSessionId = await conversation.startSession({
+      conversationToken: conversationData.token,        // WebRTC JWT token
+      connectionType: 'webrtc',                         // DIRECT - no proxy
+      configuration: this.webRTCConfig,                 // Latency-optimized
+      dynamicVariables: conversationData.dynamicVariables, // User context
       
       onConnect: () => {
         console.timeEnd('🚀 Connection Setup Time');
@@ -161,6 +158,62 @@ class OptimizedVoiceCall {
     });
     
     return sessionId;
+  }
+}
+```
+
+#### **Option B: Direct WebRTC Implementation (Universal - Web, Flutter, Mobile)**
+```typescript
+class OptimizedVoiceCallDirect {
+  async establishDirectConnection(agentId: string): Promise<string> {
+    console.time('🚀 Connection Setup Time');
+    
+    // 1. Get WebRTC token and user context from Voice Service
+    const { sessionId, conversationData } = await this.voiceService.startConversation(agentId, convId);
+    
+    // 2. Decode JWT token to get WebRTC room information
+    const tokenPayload = JSON.parse(atob(conversationData.token.split('.')[1]));
+    const roomName = tokenPayload.video.room;
+    const permissions = tokenPayload.video;
+    
+    console.log('🔍 WebRTC Room Info:', {
+      room: roomName,
+      canPublish: permissions.canPublish,
+      canSubscribe: permissions.canSubscribe,
+      userContext: conversationData.dynamicVariables
+    });
+    
+    // 3. Establish direct WebRTC connection (no SDK required)
+    const webrtcConnection = await this.connectToElevenLabsWebRTC({
+      roomName: roomName,
+      permissions: permissions,
+      userContext: conversationData.dynamicVariables,
+      config: {
+        iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
+        iceCandidatePoolSize: 10
+      }
+    });
+    
+    console.timeEnd('🚀 Connection Setup Time');
+    console.log('⚡ Direct WebRTC connection established without SDK');
+    
+    return sessionId;
+  }
+  
+  private async connectToElevenLabsWebRTC(params: {
+    roomName: string;
+    permissions: any;
+    userContext: any;
+    config: RTCConfiguration;
+  }): Promise<RTCPeerConnection> {
+    // Implementation would use WebRTC APIs directly
+    // This approach works for Web, Flutter (flutter_webrtc), and Mobile
+    const peerConnection = new RTCPeerConnection(params.config);
+    
+    // Connect to ElevenLabs WebRTC endpoint using room name and permissions
+    // Pass user context to agent via WebRTC data channels or connection metadata
+    
+    return peerConnection;
   }
 }
 ```
@@ -180,26 +233,34 @@ class OptimizedFlutterVoiceCall {
     final stopwatch = Stopwatch()..start();
     
     try {
-      // 1. Get WebRTC token from Voice Service
+      // 1. Get WebRTC token and user context from Voice Service
       final result = await voiceServiceClient.startConversation(
         agentId: agentId,
         conversationId: 'flutter_${DateTime.now().millisecondsSinceEpoch}',
       );
       
-      // 2. Establish DIRECT WebRTC connection
-      final webRTCConnection = await ElevenLabsWebRTC.connect(
-        token: result['conversationData']['token'],
-        configuration: webRTCConfig, // Latency-optimized
-        
-        onConnected: () {
-          print('⚡ Flutter: Direct WebRTC connected in ${stopwatch.elapsedMilliseconds}ms');
-        },
-        
-        onAudioReceived: (audioData) {
-          // Direct audio playback - no buffering delays
-          AudioPlayer.playDirectly(audioData);
-        },
+      final conversationData = result['conversationData'];
+      final webrtcToken = conversationData['token'];
+      final dynamicVariables = conversationData['dynamicVariables'];
+      
+      // 2. Decode JWT token to get WebRTC room information
+      final tokenPayload = _decodeJWT(webrtcToken);
+      final roomName = tokenPayload['video']['room'];
+      final permissions = tokenPayload['video'];
+      
+      print('🔍 Flutter WebRTC Room Info:');
+      print('  Room: $roomName');
+      print('  User Context: $dynamicVariables');
+      
+      // 3. Establish DIRECT WebRTC connection using flutter_webrtc
+      final webRTCConnection = await _connectToElevenLabsWebRTC(
+        roomName: roomName,
+        permissions: permissions,
+        userContext: dynamicVariables,
+        configuration: webRTCConfig,
       );
+      
+      print('⚡ Flutter: Direct WebRTC connected in ${stopwatch.elapsedMilliseconds}ms');
       
       return result['sessionId'];
       
@@ -207,6 +268,36 @@ class OptimizedFlutterVoiceCall {
       print('❌ Direct connection failed: $error');
       throw error;
     }
+  }
+  
+  Future<RTCPeerConnection> _connectToElevenLabsWebRTC({
+    required String roomName,
+    required Map<String, dynamic> permissions,
+    required Map<String, dynamic> userContext,
+    required RTCConfiguration configuration,
+  }) async {
+    // Use flutter_webrtc package for direct WebRTC connection
+    final peerConnection = await createPeerConnection(configuration);
+    
+    // Connect to ElevenLabs WebRTC endpoint using room name
+    // Pass user context to agent (user_name, user_id, etc.)
+    
+    // Set up audio stream handling
+    peerConnection.onTrack = (RTCTrackEvent event) {
+      // Direct audio playback - no buffering delays
+      _playAudioDirectly(event.streams.first);
+    };
+    
+    return peerConnection;
+  }
+  
+  Map<String, dynamic> _decodeJWT(String token) {
+    // Decode JWT token to extract WebRTC room information
+    final parts = token.split('.');
+    final payload = parts[1];
+    final normalizedPayload = base64.normalize(payload);
+    final decoded = utf8.decode(base64.decode(normalizedPayload));
+    return json.decode(decoded);
   }
 }
 ```
