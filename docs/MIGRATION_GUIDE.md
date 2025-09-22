@@ -68,22 +68,23 @@ const startElevenLabsConversation = async (confirmedUser?: User) => {
 
     // conversationData now contains:
     // - token: WebRTC JWT token for direct connection
-    // - dynamicVariables: User context (name, uuid, etc.) automatically fetched
-    console.log("🔍 User context for agent:", conversationData.dynamicVariables);
+    // - overrides: User personalization (name, language, etc.) automatically prepared
+    console.log("🔍 User personalization for agent:", conversationData.overrides);
     // {
-    //   user_id: "1711",
-    //   user_uuid: "uuid-from-rekeep",
-    //   user_name: "Rafał Kowalski",  // Automatically fetched from ReKeep API
-    //   user_token: "1711|JPcIqtiocWWw...",
-    //   bearer_token: "Bearer 1711|JPcIq...",
-    //   conversation_id: "conversation_123"
+    //   agent: {
+    //     prompt: {
+    //       prompt: "You are a helpful Polish voice assistant. The user's name is Rafał (ID: 1711). Personalize your responses and greet them by name."
+    //     },
+    //     firstMessage: "Cześć Rafał! Miło Cię poznać. W czym mogę Ci dzisiaj pomóc?",
+    //     language: "pl"
+    //   }
     // }
 
     // OPTION A: Using ElevenLabs SDK (Web only)
     const elevenLabsConversationId = await conversation.startSession({
       conversationToken: conversationData.token,        // WebRTC JWT token
       connectionType: conversationData.connectionType, // 'webrtc'
-      dynamicVariables: conversationData.dynamicVariables // User context
+      overrides: conversationData.overrides            // ✅ User personalization
     });
 
     // OPTION B: Direct WebRTC (Universal - Web, Flutter, Mobile)
@@ -96,7 +97,7 @@ const startElevenLabsConversation = async (confirmedUser?: User) => {
     const webrtcConnection = await establishDirectWebRTC({
       roomName: roomName,
       permissions: permissions,
-      userContext: conversationData.dynamicVariables
+      overrides: conversationData.overrides // ✅ User personalization
     });
 
     console.log("✅ Started ElevenLabs conversation:", elevenLabsConversationId);
@@ -273,9 +274,10 @@ flutter run
 | Web-only support | ✅ Multi-client support (Web, Flutter, Mobile) |
 | Complex usage tracking | ✅ Centralized usage management |
 | Tightly coupled code | ✅ Clean separation of concerns |
-| Manual user context handling | ✅ Automatic user profile fetching |
+| Manual user context handling | ✅ Automatic user personalization via overrides |
 | ElevenLabs SDK dependency | ✅ Direct WebRTC option (no SDK required) |
 | Limited to Web SDK | ✅ Universal WebRTC implementation |
+| No agent personalization | ✅ ElevenLabs Overrides for immediate greeting |
 
 ## 🚨 Common Migration Issues
 
