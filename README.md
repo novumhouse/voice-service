@@ -511,10 +511,10 @@ The service supports 4 configurable agents:
 
 | Agent ID | Environment Variable | Specialization |
 |----------|---------------------|----------------|
-| agent_1  | AGENT_1_ID          | Customer Support |
-| agent_2  | AGENT_2_ID          | Diet Consultation |
-| agent_3  | AGENT_3_ID          | Sales |
-| agent_4  | AGENT_4_ID          | Technical Support |
+| agent_1  | AGENT_1_ID          |  |
+| agent_2  | AGENT_2_ID          |  |
+| agent_3  | AGENT_3_ID          |  |
+| agent_4  | AGENT_4_ID          |  |
 
 ## 📈 Monitoring & Health Checks
 
@@ -659,30 +659,3 @@ Detailed architecture and implementation guides:
 - **[Latency Comparison](LATENCY_COMPARISON.md)** - Performance analysis and optimization
 - **[Migration Guide](MIGRATION_GUIDE.md)** - Migrating from existing ElevenLabs integration
 
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
-
-## 📄 License
-
-This project is licensed under the MIT License.
-
-## 🆘 Support
-
-For support and questions:
-- Create an issue on [GitHub](https://github.com/novumhouse/rekeep-voice-service/issues)
-- Contact the ReKeep development team
-- Check the API documentation at `http://localhost:3001/api/voice`
-
-## 🔗 Related Repositories
-
-- **[ReKeep UI](https://github.com/novumhouse/rekeep-ui)** - Main frontend application
-- **[ReKeep Voice Service](https://github.com/novumhouse/rekeep-voice-service)** - This voice service API
-
----
-
-**Made with ❤️ by the ReKeep Team**

@@ -1,0 +1,538 @@
+{
+  "_type": "export",
+  "__export_format": 4,
+  "__export_date": "2025-09-23T07:15:00.000Z",
+  "__export_source": "insomnia.desktop.app:v2023.5.8",
+  "resources": [
+    {
+      "_id": "req_health_check",
+      "parentId": "fld_voice_service",
+      "modified": 1695456900000,
+      "created": 1695456900000,
+      "url": "{{ _.base_url }}/health",
+      "name": "Health Check",
+      "description": "Check if the Voice Service is running",
+      "method": "GET",
+      "body": {},
+      "parameters": [],
+      "headers": [],
+      "authentication": {},
+      "metaSortKey": -1695456900000,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_api_docs",
+      "parentId": "fld_voice_service",
+      "modified": 1695456900000,
+      "created": 1695456900000,
+      "url": "{{ _.base_url }}/api/voice",
+      "name": "API Documentation",
+      "description": "Get API documentation and available endpoints",
+      "method": "GET",
+      "body": {},
+      "parameters": [],
+      "headers": [],
+      "authentication": {},
+      "metaSortKey": -1695456800000,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_list_agents",
+      "parentId": "fld_agents",
+      "modified": 1695456900000,
+      "created": 1695456900000,
+      "url": "{{ _.base_url }}/api/voice/agents",
+      "name": "List All Agents",
+      "description": "Get list of all available voice agents",
+      "method": "GET",
+      "body": {},
+      "parameters": [],
+      "headers": [
+        {
+          "name": "X-API-TOKEN",
+          "value": "{{ _.api_token }}",
+          "description": "API authentication token"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": -1695456700000,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_get_agent",
+      "parentId": "fld_agents",
+      "modified": 1695456900000,
+      "created": 1695456900000,
+      "url": "{{ _.base_url }}/api/voice/agents/agent_1",
+      "name": "Get Specific Agent",
+      "description": "Get details for a specific agent (agent_1, agent_2, or agent_3)",
+      "method": "GET",
+      "body": {},
+      "parameters": [],
+      "headers": [
+        {
+          "name": "X-API-TOKEN",
+          "value": "{{ _.api_token }}",
+          "description": "API authentication token"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": -1695456600000,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_start_conversation",
+      "parentId": "fld_conversations",
+      "modified": 1695456900000,
+      "created": 1695456900000,
+      "url": "{{ _.base_url }}/api/voice/conversations/start",
+      "name": "Start Conversation",
+      "description": "Start a new voice conversation with an agent using ElevenLabs Overrides",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"agentId\": \"agent_1\",\n  \"conversationId\": \"insomnia-test-{{ _.timestamp }}\",\n  \"userId\": \"{{ _.api_token }}\",\n  \"userName\": \"Insomnia User\",\n  \"userToken\": \"{{ _.api_token }}\",\n  \"userUuid\": \"insomnia-uuid-123\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "X-API-TOKEN",
+          "value": "{{ _.api_token }}",
+          "description": "API authentication token"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": -1695456500000,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_start_conversation_agent2",
+      "parentId": "fld_conversations",
+      "modified": 1695456900000,
+      "created": 1695456900000,
+      "url": "{{ _.base_url }}/api/voice/conversations/start",
+      "name": "Start Conversation (Agent 2)",
+      "description": "Start conversation with Agent 2 (English Customer Support)",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"agentId\": \"agent_2\",\n  \"conversationId\": \"insomnia-agent2-{{ _.timestamp }}\",\n  \"userId\": \"{{ _.api_token }}\",\n  \"userName\": \"Support User\",\n  \"userToken\": \"{{ _.api_token }}\",\n  \"userUuid\": \"support-uuid-456\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "X-API-TOKEN",
+          "value": "{{ _.api_token }}",
+          "description": "API authentication token"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": -1695456400000,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_start_conversation_agent3",
+      "parentId": "fld_conversations",
+      "modified": 1695456900000,
+      "created": 1695456900000,
+      "url": "{{ _.base_url }}/api/voice/conversations/start",
+      "name": "Start Conversation (Agent 3)",
+      "description": "Start conversation with Agent 3 (Spanish Sales Assistant)",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"agentId\": \"agent_3\",\n  \"conversationId\": \"insomnia-agent3-{{ _.timestamp }}\",\n  \"userId\": \"{{ _.api_token }}\",\n  \"userName\": \"Cliente VIP\",\n  \"userToken\": \"{{ _.api_token }}\",\n  \"userUuid\": \"vip-uuid-789\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "X-API-TOKEN",
+          "value": "{{ _.api_token }}",
+          "description": "API authentication token"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": -1695456300000,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_get_session_status",
+      "parentId": "fld_conversations",
+      "modified": 1695456900000,
+      "created": 1695456900000,
+      "url": "{{ _.base_url }}/api/voice/conversations/voice_1234567890_example/status",
+      "name": "Get Session Status",
+      "description": "Get status of an active conversation session",
+      "method": "GET",
+      "body": {},
+      "parameters": [],
+      "headers": [
+        {
+          "name": "X-API-TOKEN",
+          "value": "{{ _.api_token }}",
+          "description": "API authentication token"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": -1695456200000,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_end_session",
+      "parentId": "fld_conversations",
+      "modified": 1695456900000,
+      "created": 1695456900000,
+      "url": "{{ _.base_url }}/api/voice/conversations/voice_1234567890_example/end",
+      "name": "End Session",
+      "description": "End an active conversation session",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"reason\": \"User ended conversation\",\n  \"duration\": 120\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "X-API-TOKEN",
+          "value": "{{ _.api_token }}",
+          "description": "API authentication token"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": -1695456100000,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_error_invalid_agent",
+      "parentId": "fld_error_tests",
+      "modified": 1695456900000,
+      "created": 1695456900000,
+      "url": "{{ _.base_url }}/api/voice/conversations/start",
+      "name": "Error: Invalid Agent",
+      "description": "Test error handling with invalid agent ID",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"agentId\": \"invalid_agent\",\n  \"conversationId\": \"error-test-{{ _.timestamp }}\",\n  \"userId\": \"{{ _.api_token }}\",\n  \"userName\": \"Test User\",\n  \"userToken\": \"{{ _.api_token }}\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "X-API-TOKEN",
+          "value": "{{ _.api_token }}",
+          "description": "API authentication token"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": -1695456000000,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_error_missing_auth",
+      "parentId": "fld_error_tests",
+      "modified": 1695456900000,
+      "created": 1695456900000,
+      "url": "{{ _.base_url }}/api/voice/conversations/start",
+      "name": "Error: Missing Auth",
+      "description": "Test error handling without authentication token",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"agentId\": \"agent_1\",\n  \"conversationId\": \"auth-error-{{ _.timestamp }}\",\n  \"userId\": \"test-user\",\n  \"userName\": \"Test User\",\n  \"userToken\": \"test-token\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": -1695455900000,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "req_error_missing_fields",
+      "parentId": "fld_error_tests",
+      "modified": 1695456900000,
+      "created": 1695456900000,
+      "url": "{{ _.base_url }}/api/voice/conversations/start",
+      "name": "Error: Missing Required Fields",
+      "description": "Test error handling with missing required fields",
+      "method": "POST",
+      "body": {
+        "mimeType": "application/json",
+        "text": "{\n  \"agentId\": \"agent_1\"\n}"
+      },
+      "parameters": [],
+      "headers": [
+        {
+          "name": "Content-Type",
+          "value": "application/json"
+        },
+        {
+          "name": "X-API-TOKEN",
+          "value": "{{ _.api_token }}",
+          "description": "API authentication token"
+        }
+      ],
+      "authentication": {},
+      "metaSortKey": -1695455800000,
+      "isPrivate": false,
+      "settingStoreCookies": true,
+      "settingSendCookies": true,
+      "settingDisableRenderRequestBody": false,
+      "settingEncodeUrl": true,
+      "settingRebuildPath": true,
+      "settingFollowRedirects": "global",
+      "_type": "request"
+    },
+    {
+      "_id": "fld_voice_service",
+      "parentId": "wrk_voice_service",
+      "modified": 1695456900000,
+      "created": 1695456900000,
+      "name": "🏥 Service Health",
+      "description": "Basic service health and documentation endpoints",
+      "environment": {},
+      "environmentPropertyOrder": null,
+      "metaSortKey": -1695456900000,
+      "_type": "request_group"
+    },
+    {
+      "_id": "fld_agents",
+      "parentId": "wrk_voice_service",
+      "modified": 1695456900000,
+      "created": 1695456900000,
+      "name": "🤖 Agents",
+      "description": "Voice agent management endpoints",
+      "environment": {},
+      "environmentPropertyOrder": null,
+      "metaSortKey": -1695456800000,
+      "_type": "request_group"
+    },
+    {
+      "_id": "fld_conversations",
+      "parentId": "wrk_voice_service",
+      "modified": 1695456900000,
+      "created": 1695456900000,
+      "name": "💬 Conversations",
+      "description": "Voice conversation management endpoints",
+      "environment": {},
+      "environmentPropertyOrder": null,
+      "metaSortKey": -1695456700000,
+      "_type": "request_group"
+    },
+    {
+      "_id": "fld_error_tests",
+      "parentId": "wrk_voice_service",
+      "modified": 1695456900000,
+      "created": 1695456900000,
+      "name": "❌ Error Testing",
+      "description": "Test error handling and edge cases",
+      "environment": {},
+      "environmentPropertyOrder": null,
+      "metaSortKey": -1695456600000,
+      "_type": "request_group"
+    },
+    {
+      "_id": "wrk_voice_service",
+      "parentId": null,
+      "modified": 1695456900000,
+      "created": 1695456900000,
+      "name": "🎤 Voice Service API",
+      "description": "ElevenLabs Voice Service API Testing Collection",
+      "scope": "collection",
+      "_type": "workspace"
+    },
+    {
+      "_id": "env_base",
+      "parentId": "wrk_voice_service",
+      "modified": 1695456900000,
+      "created": 1695456900000,
+      "name": "Base Environment",
+      "data": {
+        "base_url": "http://localhost:3000",
+        "api_token": "test-token-123",
+        "timestamp": "{% now 'unix' %}"
+      },
+      "dataPropertyOrder": {
+        "&": [
+          "base_url",
+          "api_token",
+          "timestamp"
+        ]
+      },
+      "color": null,
+      "isPrivate": false,
+      "metaSortKey": 1695456900000,
+      "_type": "environment"
+    },
+    {
+      "_id": "env_local_dev",
+      "parentId": "wrk_voice_service",
+      "modified": 1695456900000,
+      "created": 1695456900000,
+      "name": "Local Development",
+      "data": {
+        "base_url": "http://localhost:3001",
+        "api_token": "dev-token-456", //X-API-TOKEN from rekeep
+        "timestamp": "{% now 'unix' %}"
+      },
+      "dataPropertyOrder": {
+        "&": [
+          "base_url",
+          "api_token",
+          "timestamp"
+        ]
+      },
+      "color": "#4CAF50",
+      "isPrivate": false,
+      "metaSortKey": 1695456850000,
+      "_type": "environment"
+    },
+    {
+      "_id": "env_staging",
+      "parentId": "wrk_voice_service",
+      "modified": 1695456900000,
+      "created": 1695456900000,
+      "name": "Staging Environment",
+      "data": {
+        "base_url": "http://localhost:3001",
+        "api_token": "staging-token-789",
+        "timestamp": "{% now 'unix' %}"
+      },
+      "dataPropertyOrder": {
+        "&": [
+          "base_url",
+          "api_token",
+          "timestamp"
+        ]
+      },
+      "color": "#FF9800",
+      "isPrivate": false,
+      "metaSortKey": 1695456825000,
+      "_type": "environment"
+    },
+    {
+      "_id": "env_production",
+      "parentId": "wrk_voice_service",
+      "modified": 1695456900000,
+      "created": 1695456900000,
+      "name": "Production Environment",
+      "data": {
+        "base_url": "https://your-domain.com",
+        "api_token": "your-production-token",
+        "timestamp": "{% now 'unix' %}"
+      },
+      "dataPropertyOrder": {
+        "&": [
+          "base_url",
+          "api_token",
+          "timestamp"
+        ]
+      },
+      "color": "#f44336",
+      "isPrivate": false,
+      "metaSortKey": 1695456800000,
+      "_type": "environment"
+    }
+  ]
+}
