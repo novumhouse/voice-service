@@ -234,12 +234,12 @@ class VoiceServiceClient {
 
   /**
    * OPTION A: ElevenLabs React SDK Implementation Guide
-   * Install: npm install @elevenlabs/react
+   * Install: yarn add @elevenlabs/react
    */
   private async startWithElevenLabsSDK(sessionId: string, conversationData: any): Promise<string> {
     console.log('📋 ElevenLabs React SDK Implementation:');
     console.log(`
-// 1. Install: npm install @elevenlabs/react
+// 1. Install: yarn add @elevenlabs/react
 // 2. In your React component:
 
 import { useConversation } from '@elevenlabs/react';
