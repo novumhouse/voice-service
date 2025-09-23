@@ -231,8 +231,8 @@ GET    /api/voice/health                       # Health check
 
 ```bash
 # Clone the repository
-git clone git@github.com:novumhouse/rekeep-voice-service.git
-cd rekeep-voice-service
+git clone git@github.com:miekki-jerry/rekeep-voice.git
+cd rekeep-voice
 
 # Copy environment configuration
 cp config.example.env .env
@@ -277,10 +277,10 @@ REKEEP_API_BASE_URL=https://rekeep-crm-dev-api.invo.ventures
 
 ```bash
 # Install dependencies
-npm install
+yarn install
 
 # Start development server with hot reload
-npm run dev
+yarn dev
 
 # The service will be available at:
 # - API: http://localhost:3001
@@ -288,10 +288,10 @@ npm run dev
 # - Documentation: http://localhost:3001/api/voice
 
 # Build for production
-npm run build
+yarn build
 
 # Start production server
-npm start
+yarn start
 ```
 
 **Development Notes**:
@@ -333,13 +333,13 @@ docker-compose logs -f voice-service
 
 ```bash
 # Install PM2 globally
-npm install -g pm2
+yarn global add pm2
 
 # Build the application
-npm run build
+yarn build
 
 # Start with PM2
-npm run pm2:start
+yarn pm2:start
 
 # Monitor
 pm2 monit
@@ -348,10 +348,10 @@ pm2 monit
 pm2 logs voice-service
 
 # Restart
-npm run pm2:restart
+yarn pm2:restart
 
 # Stop
-npm run pm2:stop
+yarn pm2:stop
 ```
 
 ## 📊 Usage Examples
@@ -638,10 +638,10 @@ curl http://localhost:3001/api/voice/tools/decrypt   # ✅ Server Tools
 ### Linting
 ```bash
 # Run linter
-npm run lint
+yarn lint
 
 # Fix linting issues
-npm run lint:fix
+yarn lint:fix
 ```
 
 ## 📚 Client Integration Examples

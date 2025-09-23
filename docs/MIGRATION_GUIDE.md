@@ -240,15 +240,15 @@ frontend/lib/voice-session-helpers.ts     ✅ KEEP (update to use Voice Service)
 ### 1. Start Voice Service
 ```bash
 cd voice-service
-npm install
-npm run dev
+yarn install
+yarn dev
 ```
 
 ### 2. Update Frontend
 ```bash
 cd frontend
 # Update your ChatWindow.tsx with the simplified logic
-npm run dev
+yarn dev
 ```
 
 ### 3. Test Agent Selection
