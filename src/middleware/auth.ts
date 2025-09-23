@@ -4,13 +4,38 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
+import { logger } from '../utils/logger.js';
+import { errorResponse } from '../utils/http.js';
+import { db } from '../db/client.js';
+import { users } from '../db/schema.js';
+import { eq } from 'drizzle-orm';
 
-interface UserProfile {
-  uuid?: string;
-  client_profile?: {
-    first_name?: string;
-    last_name?: string;
-    diet_expectation?: string;
+interface RekeepClientMeResponse {
+  data?: {
+    uuid?: string;
+    email?: string;
+    phone_number?: string;
+    preferred_language?: string;
+    is_email_verified?: boolean;
+    is_social?: boolean;
+    marketing_consents?: Record<string, unknown>;
+    token?: unknown;
+    client_profile?: {
+      uuid?: string;
+      first_name?: string;
+      last_name?: string;
+      street?: string | null;
+      postcode?: string | null;
+      city?: string | null;
+      gender?: string | null;
+      birth_date?: string | null;
+      diet_expectation?: string | null;
+      lifestyle?: string | null;
+      weight?: number | null;
+      weight_goal?: number | null;
+      height?: number | null;
+      onboarding_completed?: boolean | null;
+    };
   };
 }
 
@@ -26,33 +51,35 @@ function getUserIdFromToken(token: string): string {
  * Extract user name from token or use fallback
  */
 function getUserNameFromToken(token: string, fallback = 'User'): string {
-  // In a real implementation, you might decode the JWT to get the user name
-  // For now, using the user ID as a fallback
   return fallback;
 }
 
 /**
  * Fetch user profile from existing API
  */
-async function fetchUserProfile(token: string): Promise<UserProfile | null> {
+export async function fetchUserMe(token: string): Promise<RekeepClientMeResponse | null> {
   try {
-    const response = await fetch(`${process.env.REKEEP_API_BASE_URL}/client/profile`, {
+    const base = process.env.REKEEP_API_BASE_URL;
+    if (!base) return null;
+    const url = `${base}/auth/api/client/me`;
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
         'Content-Type': 'application/json',
       },
     });
 
     if (!response.ok) {
-      console.warn(`⚠️ Failed to fetch user profile: ${response.status}`);
+      logger.warn('Failed to fetch ReKeep client me', { status: response.status });
       return null;
     }
 
-    const profile = await response.json() as UserProfile;
+    const profile = await response.json() as RekeepClientMeResponse;
     return profile;
   } catch (error) {
-    console.warn('⚠️ Error fetching user profile:', error);
+    logger.warn('Error fetching ReKeep client me', { error: error instanceof Error ? error.message : String(error) });
     return null;
   }
 }
@@ -72,46 +99,51 @@ export async function authenticateUser(req: Request, res: Response, next: NextFu
     if (xApiToken) {
       userToken = xApiToken;
       userId = getUserIdFromToken(xApiToken);
-      console.log(`🔑 Authentication via X-API-TOKEN for user: ${userId}`);
+      logger.info('Authentication via X-API-TOKEN', { userId });
     }
-    
     // Method 2: Authorization Bearer token
     else if (req.headers.authorization) {
       const authHeader = req.headers.authorization;
       if (authHeader.startsWith('Bearer ')) {
         userToken = authHeader.substring(7);
         userId = getUserIdFromToken(userToken);
-        console.log(`🔑 Authentication via Authorization Bearer for user: ${userId}`);
+        logger.info('Authentication via Authorization Bearer', { userId });
       }
     }
-    
-    // Method 3: API_KEY from environment (fallback)
-    else if (process.env.API_KEY) {
-      userToken = process.env.API_KEY;
-      userId = getUserIdFromToken(userToken);
-      userName = 'Default User';
-      console.log(`🔑 Authentication via API_KEY fallback for user: ${userId}`);
-    }
+    // No environment fallback: require explicit token
 
     if (!userToken || !userId) {
-      res.status(401).json({
-        success: false,
-        error: 'Authentication required',
-        details: 'Provide X-API-TOKEN header or Authorization Bearer token'
-      });
+      res.status(401).json(errorResponse(401, 'Unauthorized: invalid or missing token'));
       return;
     }
 
-    // Try to get user profile for additional context
-    let userProfile: UserProfile | null = null;
+    // Enforce ReKeep verification when configured
+    let userProfile: RekeepClientMeResponse | null = null;
     if (process.env.REKEEP_API_BASE_URL) {
-      userProfile = await fetchUserProfile(userToken);
-      if (userProfile?.client_profile) {
-        const profile = userProfile.client_profile;
-        userName = profile.first_name || profile.last_name || userName;
-        if (profile.first_name && profile.last_name) {
-          userName = `${profile.first_name} ${profile.last_name}`;
+      userProfile = await fetchUserMe(userToken);
+      const data = userProfile?.data;
+      if (!data?.uuid) {
+        res.status(401).json(errorResponse(401, 'Unauthorized: invalid X-API-TOKEN'));
+        return;
+      }
+      const firstName = data.client_profile?.first_name;
+      if (firstName) {
+        userName = firstName;
+      }
+
+      // Ensure user exists in local users table (by uuid). If not, create minimal record.
+      try {
+        const found = await db.select().from(users).where(eq(users.uuid, data.uuid)).limit(1);
+        if (found.length === 0) {
+          await db.insert(users).values({
+            uuid: data.uuid,
+            firstName: data.client_profile?.first_name || null as unknown as string,
+            lastName: data.client_profile?.last_name || null as unknown as string,
+          });
+          logger.info('Created local user record', { uuid: data.uuid });
         }
+      } catch (e) {
+        logger.warn('Failed to ensure local user record', { error: e instanceof Error ? e.message : 'unknown' });
       }
     }
 
@@ -120,19 +152,15 @@ export async function authenticateUser(req: Request, res: Response, next: NextFu
       id: userId,
       name: userName,
       token: userToken,
-      uuid: userProfile?.uuid || undefined
+      uuid: userProfile?.data?.uuid || userProfile?.data?.client_profile?.uuid || undefined
     };
 
-    console.log(`✅ Authenticated user: ${userName} (${userId})`);
+    logger.info('Authenticated user', { userId, userName, uuid: req.user.uuid });
     next();
 
   } catch (error) {
-    console.error('❌ Authentication error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Authentication failed',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    });
+    logger.error('Authentication error', { error: error instanceof Error ? error.message : 'Unknown error' });
+    res.status(500).json(errorResponse(500, 'Authentication failed'));
   }
 }
 
@@ -142,7 +170,6 @@ export async function authenticateUser(req: Request, res: Response, next: NextFu
  */
 export async function optionalAuth(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    // Try to authenticate, but don't fail if no auth provided
     const xApiToken = req.headers['x-api-token'] as string;
     const authHeader = req.headers.authorization;
 
@@ -152,8 +179,7 @@ export async function optionalAuth(req: Request, res: Response, next: NextFuncti
       next();
     }
   } catch (error) {
-    // Log the error but continue without auth
-    console.warn('⚠️ Optional auth failed:', error);
+    logger.warn('Optional auth failed', { error: error instanceof Error ? error.message : 'Unknown error' });
     next();
   }
 }
@@ -163,22 +189,20 @@ export async function optionalAuth(req: Request, res: Response, next: NextFuncti
  * Requires admin-level access
  */
 export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
-  const adminKey = req.headers['x-admin-key'] as string;
-  const expectedAdminKey = process.env.ADMIN_KEY;
+  const authHeader = req.headers.authorization;
+  const bearerKey = authHeader && authHeader.startsWith('Bearer ') ? authHeader.substring(7) : undefined;
+  const headerKey = (req.headers['x-admin-key'] as string) || undefined;
 
-  if (!expectedAdminKey) {
-    res.status(503).json({
-      success: false,
-      error: 'Admin functionality not configured'
-    });
+  const expected = process.env.ADMIN_API_KEY || process.env.ADMIN_KEY; // support legacy env name
+
+  if (!expected) {
+    res.status(503).json(errorResponse(503, 'Admin functionality not configured'));
     return;
   }
 
-  if (!adminKey || adminKey !== expectedAdminKey) {
-    res.status(403).json({
-      success: false,
-      error: 'Admin access required'
-    });
+  const provided = bearerKey || headerKey;
+  if (!provided || provided !== expected) {
+    res.status(403).json(errorResponse(403, 'Admin access required'));
     return;
   }
 
@@ -204,11 +228,7 @@ export function rateLimit(maxRequests = 100, windowMs = 15 * 60 * 1000): (req: R
     record.count++;
 
     if (record.count > maxRequests) {
-      res.status(429).json({
-        success: false,
-        error: 'Too many requests',
-        retryAfter: Math.ceil((record.resetTime - now) / 1000)
-      });
+      res.status(429).json(errorResponse(429, 'Too many requests'));
       return;
     }
 

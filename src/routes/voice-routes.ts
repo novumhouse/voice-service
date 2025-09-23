@@ -5,7 +5,8 @@
 
 import express from 'express';
 import { voiceController } from '../controllers/voice-controller.js';
-import { authenticateUser, optionalAuth, rateLimit } from '../middleware/auth.js';
+import { authenticateUser, optionalAuth, rateLimit, requireAdmin } from '../middleware/auth.js';
+import { sessionManager } from '../services/session-manager.js';
 
 const router = express.Router();
 
@@ -52,6 +53,9 @@ router.get('/sessions/active', authenticateUser, voiceController.getUserActiveSe
 // GET /api/voice/health - Service health check
 router.get('/health', voiceController.healthCheck.bind(voiceController));
 
+// GET /api/voice/rekeep/me - Test ReKeep connectivity (uses provided token headers)
+router.get('/rekeep/me', voiceController.rekeepMe.bind(voiceController));
+
 /**
  * Server Tools Routes (for ElevenLabs agents)
  * These endpoints are called by ElevenLabs agents via Server Tools
@@ -66,6 +70,23 @@ router.post('/tools/decrypt', voiceController.decryptUserContext.bind(voiceContr
 
 // POST /api/voice/tools/authenticated-call/:conversationId - Make authenticated API calls
 router.post('/tools/authenticated-call/:conversationId', voiceController.makeAuthenticatedCall.bind(voiceController));
+
+/**
+ * Admin Routes
+ * Protected via Authorization: Bearer <ADMIN_API_KEY> or X-Admin-Key
+ */
+
+// GET /api/voice/admin/sessions - List all active sessions
+router.get('/admin/sessions', requireAdmin, (req, res) => {
+  const sessions = sessionManager.getAllActiveSessions();
+  res.json({ success: true, data: sessions });
+});
+
+// POST /api/voice/admin/sessions/end - End all active sessions
+router.post('/admin/sessions/end', requireAdmin, async (req, res) => {
+  const result = await sessionManager.endAllActiveSessions();
+  res.json({ success: true, data: result });
+});
 
 /**
  * API Documentation Route
@@ -89,6 +110,10 @@ router.get('/', (req, res) => {
         'GET /api/voice/sessions/usage': 'Get voice usage statistics',
         'GET /api/voice/sessions/active': 'Get active sessions'
       },
+      admin: {
+        'GET /api/voice/admin/sessions': 'List ALL active sessions (admin)',
+        'POST /api/voice/admin/sessions/end': 'End ALL active sessions (admin)'
+      },
       health: {
         'GET /api/voice/health': 'Service health check'
       },
@@ -100,11 +125,17 @@ router.get('/', (req, res) => {
     authentication: {
       methods: [
         'X-API-TOKEN header (preferred)',
-        'Authorization: Bearer <token>',
-        'Environment API_KEY (fallback)'
+          'Authorization: Bearer <token>'
       ],
       example: {
         'X-API-TOKEN': '1711|JPcIqtiocWWw0XUDu94YsyaoVw3n6ZST50n9rxtJ90e4e4f6'
+      },
+      admin: {
+        methods: [
+          'Authorization: Bearer <ADMIN_API_KEY> (preferred)',
+          'X-Admin-Key: <ADMIN_API_KEY> (fallback)'
+        ],
+        behavior: '401 Unauthorized when missing/invalid user token'
       }
     },
     agents: {

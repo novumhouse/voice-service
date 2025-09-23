@@ -10,6 +10,8 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { voiceRoutes } from './routes/voice-routes.js';
+import { errorResponse } from './utils/http.js';
+import { logger } from './utils/logger.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -43,8 +45,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Request logging
 app.use((req, res, next) => {
-  const timestamp = new Date().toISOString();
-  console.log(`${timestamp} ${req.method} ${req.path} - ${req.ip}`);
+  logger.info('request', { method: req.method, path: req.path, ip: req.ip });
   next();
 });
 
@@ -76,32 +77,13 @@ app.get('/', (req, res) => {
 
 // 404 handler
 app.use('*', (req, res) => {
-  res.status(404).json({
-    success: false,
-    error: 'Endpoint not found',
-    path: req.originalUrl,
-    method: req.method,
-    availableEndpoints: [
-      'GET /',
-      'GET /health',
-      'GET /api/voice',
-      'GET /api/voice/agents',
-      'POST /api/voice/conversations/start',
-      'GET /api/voice/sessions/usage'
-    ]
-  });
+  res.status(404).json(errorResponse(404, 'Endpoint not found'));
 });
 
 // Global error handler
 app.use((error: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('❌ Global error handler:', error);
-  
-  res.status(500).json({
-    success: false,
-    error: 'Internal server error',
-    details: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong',
-    timestamp: new Date().toISOString()
-  });
+  logger.error('global_error', { error: error instanceof Error ? error.message : 'unknown' });
+  res.status(500).json(errorResponse(500, 'Internal server error'));
 });
 
 // Graceful shutdown handling

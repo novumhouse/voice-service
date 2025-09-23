@@ -100,7 +100,7 @@ app.use('/api/voice', voiceRoutes)
 // Multi-method authentication
 X-API-TOKEN: 1711|JPcIqtiocWWw0XUDu94YsyaoVw3n6ZST50n9rxtJ90e4e4f6
 Authorization: Bearer <token>
-// + Environment fallback
+// No environment fallback (401 when missing/invalid)
 ```
 - **ReKeep API Integration**: Fetches user profiles
 - **Token Validation**: Extracts user ID from token format
@@ -216,6 +216,16 @@ GET    /api/voice/sessions/usage               # Get usage statistics
 GET    /api/voice/sessions/active              # Get active sessions
 ```
 
+### Admin (Privileged)
+```http
+GET    /api/voice/admin/sessions               # List ALL active sessions (admin)
+POST   /api/voice/admin/sessions/end           # End ALL active sessions (admin)
+
+# Auth headers (one of):
+Authorization: Bearer <ADMIN_API_KEY>
+X-Admin-Key: <ADMIN_API_KEY>
+```
+
 ### Health & Monitoring
 ```http
 GET    /api/voice/health                       # Health check
@@ -241,6 +251,7 @@ nano .env
 - `ELEVENLABS_API_KEY` - Your ElevenLabs API key
 - `AGENT_1_ID`, `AGENT_2_ID`, etc. - Your ElevenLabs agent IDs
 - `REKEEP_API_TOKEN` - Authentication token for ReKeep API integration
+# - `ADMIN_API_KEY` - Admin access key for privileged endpoints
 
 ### 2. Environment Variables
 
@@ -262,8 +273,9 @@ AGENT_4_ID=agent_0801k4z2a4cdfz2tms20kdyvav1a
 VOICE_TIME_LIMIT=600
 
 # Authentication
-API_KEY=your_api_key_here
 REKEEP_API_TOKEN=1711|JPcIqtiocWWw0XUDu94YsyaoVw3n6ZST50n9rxtJ90e4e4f6
+# Admin (Privileged)
+ADMIN_API_KEY=your_admin_api_key_here
 
 # ReKeep API Configuration
 REKEEP_API_BASE_URL=https://rekeep-crm-dev-api.invo.ventures
@@ -469,6 +481,16 @@ curl -X POST \
 curl -X GET \
   'http://localhost:3001/api/voice/sessions/usage' \
   -H 'X-API-TOKEN: 1711|JPcIqtiocWWw0XUDu94YsyaoVw3n6ZST50n9rxtJ90e4e4f6'
+
+# List ALL active sessions (admin)
+curl -X GET \
+  'http://localhost:3001/api/voice/admin/sessions' \
+  -H 'Authorization: Bearer your_admin_api_key_here'
+
+# End ALL active sessions (admin)
+curl -X POST \
+  'http://localhost:3001/api/voice/admin/sessions/end' \
+  -H 'Authorization: Bearer your_admin_api_key_here'
 ```
 
 ## 🔐 Authentication Methods
@@ -485,10 +507,10 @@ The Voice Service supports multiple authentication methods:
    Authorization: Bearer 1711|JPcIqtiocWWw0XUDu94YsyaoVw3n6ZST50n9rxtJ90e4e4f6
    ```
 
-3. **Environment API_KEY** (Fallback)
-   ```
-   Uses API_KEY from environment variables
-   ```
+3. Missing token behavior
+```
+If X-API-TOKEN and Authorization Bearer are missing/invalid → 401 Unauthorized
+```
 
 ## 🤖 Agent Configuration
 

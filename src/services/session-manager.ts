@@ -6,6 +6,7 @@
 interface VoiceSession {
   id: string;
   userId: string;
+  userUuid?: string;
   userName: string;
   userToken: string;
   conversationId: string;
@@ -20,13 +21,17 @@ interface VoiceSession {
 }
 
 interface UserVoiceUsage {
-  userId: string;
+  userId: string; // stores userUuid when available, else userId
   date: string;
   totalDuration: number;
   sessionCount: number;
   limit: number;
   isLimitReached: boolean;
 }
+
+import { db } from '../db/client.js';
+import { voiceSessions, userVoiceUsageDaily } from '../db/schema.js';
+import { eq, and } from 'drizzle-orm';
 
 class VoiceSessionManager {
   private activeSessions: Map<string, VoiceSession> = new Map();
@@ -38,6 +43,7 @@ class VoiceSessionManager {
    */
   public async createSession(params: {
     userId: string;
+    userUuid?: string;
     userName: string;
     userToken: string;
     conversationId: string;
@@ -46,8 +52,9 @@ class VoiceSessionManager {
     metadata?: Record<string, any>;
   }): Promise<VoiceSession> {
     
-    // Check daily usage limit
-    const usage = await this.getUserDailyUsage(params.userId);
+    // Check daily usage limit (prefer uuid if present)
+    const usageKey = params.userUuid || params.userId;
+    const usage = await this.getUserDailyUsage(usageKey);
     if (usage.isLimitReached) {
       throw new Error('Daily voice usage limit reached');
     }
@@ -55,6 +62,7 @@ class VoiceSessionManager {
     const session: VoiceSession = {
       id: this.generateSessionId(),
       userId: params.userId,
+      userUuid: params.userUuid,
       userName: params.userName,
       userToken: params.userToken,
       conversationId: params.conversationId,
@@ -68,7 +76,31 @@ class VoiceSessionManager {
 
     this.activeSessions.set(session.id, session);
     
-    console.log(`📱 Created voice session ${session.id} for user ${params.userId} (${params.clientType})`);
+    console.log(`📱 Created voice session ${session.id} for user ${usageKey} (${params.clientType})`);
+
+    // Persist session start immediately if userUuid is available
+    try {
+      if (session.userUuid) {
+        await db.insert(voiceSessions).values({
+          id: session.id,
+          userUuid: session.userUuid,
+          userName: session.userName,
+          conversationId: session.conversationId,
+          agentId: session.agentId,
+          elevenLabsConversationId: null,
+          status: 'starting',
+          clientType: session.clientType,
+          startTime: session.startTime as unknown as Date,
+          endTime: null,
+          durationSeconds: 0,
+          metadata: session.metadata || null,
+        });
+      } else {
+        console.warn('⚠️ Skipping DB insert on start: missing userUuid');
+      }
+    } catch (e) {
+      console.warn('⚠️ Failed to persist session start, continuing:', e);
+    }
     return session;
   }
 
@@ -81,6 +113,16 @@ class VoiceSessionManager {
       session.elevenLabsConversationId = elevenLabsConversationId;
       session.status = 'active';
       this.activeSessions.set(sessionId, session);
+      // Update DB record if present
+      if (session.userUuid) {
+        db.update(voiceSessions)
+          .set({
+            elevenLabsConversationId,
+            status: 'active',
+          })
+          .where(eq(voiceSessions.id, sessionId))
+          .catch((e) => console.warn('⚠️ Failed to update session to active:', e));
+      }
     }
   }
 
@@ -100,8 +142,25 @@ class VoiceSessionManager {
     session.duration = duration;
     session.status = 'ended';
 
-    // Track usage
-    await this.trackVoiceUsage(session.userId, duration);
+    // Track usage (prefer uuid if present)
+    await this.trackVoiceUsage(session.userUuid || session.userId, duration);
+
+    // Update persisted session to ended
+    try {
+      if (session.userUuid) {
+        await db.update(voiceSessions)
+          .set({
+            endTime: endTime as unknown as Date,
+            durationSeconds: duration,
+            status: 'ended',
+          })
+          .where(eq(voiceSessions.id, session.id));
+      } else {
+        console.warn('⚠️ Skipping DB update on end: missing userUuid');
+      }
+    } catch (e) {
+      console.warn('⚠️ Failed to update session end, continuing:', e);
+    }
 
     // Remove from active sessions
     this.activeSessions.delete(sessionId);
@@ -118,7 +177,7 @@ class VoiceSessionManager {
   }
 
   /**
-   * Get all active sessions for a user
+   * Get all active sessions for a user (by token-derived id)
    */
   public getUserSessions(userId: string): VoiceSession[] {
     return Array.from(this.activeSessions.values())
@@ -126,16 +185,18 @@ class VoiceSessionManager {
   }
 
   /**
-   * Track voice usage for a user
+   * Track voice usage for a user (keyed by uuid when available)
    */
-  private async trackVoiceUsage(userId: string, duration: number): Promise<void> {
-    const today = new Date().toDateString();
-    const key = `${userId}_${today}`;
+  private async trackVoiceUsage(userKey: string, duration: number): Promise<void> {
+    // Use Europe/Warsaw local date for daily aggregation
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Warsaw', year: 'numeric', month: '2-digit', day: '2-digit' })
+      .format(new Date()); // YYYY-MM-DD (Warsaw local date)
+    const key = `${userKey}_${today}`;
     
     let usage = this.userUsage.get(key);
     if (!usage) {
       usage = {
-        userId,
+        userId: userKey,
         date: today,
         totalDuration: 0,
         sessionCount: 0,
@@ -150,26 +211,26 @@ class VoiceSessionManager {
 
     this.userUsage.set(key, usage);
 
-    // Persist to database (implement based on your DB choice)
     await this.persistUsageToDatabase(usage);
   }
 
   /**
-   * Get user's daily voice usage
+   * Get user's daily voice usage (keyed by uuid when available)
    */
-  public async getUserDailyUsage(userId: string): Promise<UserVoiceUsage> {
-    const today = new Date().toDateString();
-    const key = `${userId}_${today}`;
+  public async getUserDailyUsage(userKey: string): Promise<UserVoiceUsage> {
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Warsaw', year: 'numeric', month: '2-digit', day: '2-digit' })
+      .format(new Date());
+    const key = `${userKey}_${today}`;
     
     let usage = this.userUsage.get(key);
     if (!usage) {
       // Load from database if not in memory
-      usage = await this.loadUsageFromDatabase(userId, today) ?? undefined;
+      usage = await this.loadUsageFromDatabase(userKey, today) ?? undefined;
       if (usage) {
         this.userUsage.set(key, usage);
       } else {
         usage = {
-          userId,
+          userId: userKey,
           date: today,
           totalDuration: 0,
           sessionCount: 0,
@@ -191,21 +252,62 @@ class VoiceSessionManager {
   }
 
   /**
-   * Persist usage to database (implement based on your DB)
+   * Persist usage to database (keyed by user_uuid)
    */
   private async persistUsageToDatabase(usage: UserVoiceUsage): Promise<void> {
-    // Implementation depends on your database choice
-    // Could be Supabase, PostgreSQL, MongoDB, etc.
-    console.log(`💾 Persisting usage for ${usage.userId}: ${usage.totalDuration}s`);
+    try {
+      const usageDate = usage.date; // already formatted YYYY-MM-DD in Europe/Warsaw
+      await db
+        .insert(userVoiceUsageDaily)
+        .values({
+          userUuid: usage.userId,
+          usageDate: usageDate as unknown as any,
+          totalDuration: usage.totalDuration,
+          sessionCount: usage.sessionCount,
+          limitSeconds: usage.limit,
+          isLimitReached: usage.isLimitReached,
+        })
+        .onConflictDoUpdate({
+          target: [userVoiceUsageDaily.userUuid, userVoiceUsageDaily.usageDate],
+          set: {
+            totalDuration: usage.totalDuration,
+            sessionCount: usage.sessionCount,
+            limitSeconds: usage.limit,
+            isLimitReached: usage.isLimitReached,
+            updatedAt: new Date(),
+          },
+        });
+    } catch (e) {
+      console.warn('⚠️ Failed to persist usage, continuing:', e);
+    }
   }
 
   /**
    * Load usage from database
    */
-  private async loadUsageFromDatabase(userId: string, date: string): Promise<UserVoiceUsage | null> {
-    // Implementation depends on your database choice
-    console.log(`📊 Loading usage for ${userId} on ${date}`);
-    return null;
+  private async loadUsageFromDatabase(userKey: string, date: string): Promise<UserVoiceUsage | null> {
+    try {
+      const usageDate = date as unknown as any;
+      const rows = await db
+        .select()
+        .from(userVoiceUsageDaily)
+        .where(and(eq(userVoiceUsageDaily.userUuid, userKey), eq(userVoiceUsageDaily.usageDate, usageDate)))
+        .limit(1);
+
+      if (rows.length === 0) return null;
+      const row = rows[0];
+      return {
+        userId: row.userUuid,
+        date: date,
+        totalDuration: row.totalDuration,
+        sessionCount: row.sessionCount,
+        limit: row.limitSeconds,
+        isLimitReached: row.isLimitReached,
+      };
+    } catch (e) {
+      console.warn('⚠️ Failed to load usage, defaulting to zero:', e);
+      return null;
+    }
   }
 
   /**
@@ -246,6 +348,39 @@ class VoiceSessionManager {
       totalUsers: new Set(sessions.map(s => s.userId)).size,
       avgSessionDuration: sessions.length > 0 ? Math.round(totalDuration / sessions.length) : 0
     };
+  }
+
+  /**
+   * Get all active sessions (admin use)
+   */
+  public getAllActiveSessions(): Array<Pick<VoiceSession, 'id' | 'userId' | 'userUuid' | 'userName' | 'conversationId' | 'agentId' | 'elevenLabsConversationId' | 'startTime' | 'status' | 'clientType' | 'duration'>> {
+    const sessions = Array.from(this.activeSessions.values());
+    return sessions.map((s) => ({
+      id: s.id,
+      userId: s.userId,
+      userUuid: s.userUuid,
+      userName: s.userName,
+      conversationId: s.conversationId,
+      agentId: s.agentId,
+      elevenLabsConversationId: s.elevenLabsConversationId,
+      startTime: s.startTime,
+      status: s.status,
+      clientType: s.clientType,
+      duration: s.duration,
+    }));
+  }
+
+  /**
+   * End all active sessions (admin use)
+   */
+  public async endAllActiveSessions(): Promise<{ ended: number; sessionIds: string[] }> {
+    const ids = Array.from(this.activeSessions.keys());
+    const endedIds: string[] = [];
+    for (const id of ids) {
+      const ended = await this.endSession(id);
+      if (ended) endedIds.push(id);
+    }
+    return { ended: endedIds.length, sessionIds: endedIds };
   }
 }
 

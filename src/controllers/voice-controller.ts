@@ -7,6 +7,9 @@ import { Request, Response, NextFunction } from 'express';
 import { sessionManager } from '../services/session-manager.js';
 import { elevenLabsService } from '../services/elevenlabs-service.js';
 import { agentManager } from '../config/agents.js';
+import { errorResponse, okResponse } from '../utils/http.js';
+import { logger } from '../utils/logger.js';
+import { fetchUserMe } from '../middleware/auth.js';
 
 // Extend Request interface to include user context
 declare global {
@@ -32,20 +35,10 @@ class VoiceController {
     try {
       const agents = elevenLabsService.getAllAgents();
       
-      res.json({
-        success: true,
-        data: {
-          agents,
-          total: agents.length
-        }
-      });
+      res.json(okResponse({ agents, total: agents.length }));
     } catch (error) {
-      console.error('❌ Error getting agents:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to get agents',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('getAgents_error', { error: error instanceof Error ? error.message : 'unknown' });
+      res.status(500).json(errorResponse(500, 'Failed to get agents'));
     }
   }
 
@@ -58,17 +51,10 @@ class VoiceController {
       const { agentId } = req.params;
       const agent = elevenLabsService.getAgentInfo(agentId);
       
-      res.json({
-        success: true,
-        data: { agent }
-      });
+      res.json(okResponse({ agent }));
     } catch (error) {
-      console.error('❌ Error getting agent:', error);
-      res.status(404).json({
-        success: false,
-        error: 'Agent not found',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.warn('getAgent_error', { error: error instanceof Error ? error.message : 'unknown' });
+      res.status(404).json(errorResponse(404, 'Agent not found'));
     }
   }
 
@@ -88,19 +74,17 @@ class VoiceController {
 
       // Validate required fields
       if (!agentId || !conversationId) {
-        res.status(400).json({
-          success: false,
-          error: 'Missing required fields: agentId, conversationId'
-        });
+        res.status(400).json(errorResponse(400, 'Missing required fields: agentId, conversationId'));
         return;
       }
 
       // Validate agent
       elevenLabsService.validateAgent(agentId);
 
-      // Create voice session
+      // Create voice session (pass uuid for DB FK)
       const session = await sessionManager.createSession({
         userId: user.id,
+        userUuid: user.uuid,
         userName: user.name,
         userToken: user.token,
         conversationId,
@@ -123,33 +107,26 @@ class VoiceController {
       sessionManager.updateSessionWithElevenLabsId(session.id, conversationData.token);
 
       // Return response with overrides for client to apply when starting session
-      res.status(201).json({
-        success: true,
-        data: {
-          sessionId: session.id,
-          conversationData: {
-            token: conversationData.token,           // ✅ Standard WebRTC token
-            agentId: conversationData.agentId,       // ✅ Agent ID
-            connectionType: conversationData.connectionType, // ✅ Connection type
-            overrides: conversationData.overrides   // ✅ Overrides for client to apply
-          },
-          session: {
-            id: session.id,
-            userId: session.userId,   // Safe to show
-            agentId: session.agentId, // Safe to show
-            status: session.status,
-            startTime: session.startTime
-          }
+      res.status(201).json(okResponse({
+        sessionId: session.id,
+        conversationData: {
+          token: conversationData.token,
+          agentId: conversationData.agentId,
+          connectionType: conversationData.connectionType,
+          overrides: conversationData.overrides
+        },
+        session: {
+          id: session.id,
+          userId: session.userId,
+          agentId: session.agentId,
+          status: session.status,
+          startTime: session.startTime
         }
-      });
+      }));
 
     } catch (error) {
-      console.error('❌ Error starting conversation:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to start conversation',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('startConversation_error', { error: error instanceof Error ? error.message : 'unknown' });
+      res.status(500).json(errorResponse(500, 'Failed to start conversation'));
     }
   }
 
@@ -165,18 +142,12 @@ class VoiceController {
       // Get session and validate ownership
       const session = sessionManager.getSession(sessionId);
       if (!session) {
-        res.status(404).json({
-          success: false,
-          error: 'Session not found'
-        });
+        res.status(404).json(errorResponse(404, 'Session not found'));
         return;
       }
 
       if (session.userId !== user.id) {
-        res.status(403).json({
-          success: false,
-          error: 'Access denied to this session'
-        });
+        res.status(403).json(errorResponse(403, 'Access denied to this session'));
         return;
       }
 
@@ -191,26 +162,19 @@ class VoiceController {
         return;
       }
 
-      res.json({
-        success: true,
-        data: {
-          session: {
-            id: endedSession.id,
-            duration: endedSession.duration,
-            startTime: endedSession.startTime,
-            endTime: endedSession.endTime,
-            status: endedSession.status
-          }
+      res.json(okResponse({
+        session: {
+          id: endedSession.id,
+          duration: endedSession.duration,
+          startTime: endedSession.startTime,
+          endTime: endedSession.endTime,
+          status: endedSession.status
         }
-      });
+      }));
 
     } catch (error) {
-      console.error('❌ Error ending conversation:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to end conversation',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('endConversation_error', { error: error instanceof Error ? error.message : 'unknown' });
+      res.status(500).json(errorResponse(500, 'Failed to end conversation'));
     }
   }
 
@@ -225,42 +189,29 @@ class VoiceController {
 
       const session = sessionManager.getSession(sessionId);
       if (!session) {
-        res.status(404).json({
-          success: false,
-          error: 'Session not found'
-        });
+        res.status(404).json(errorResponse(404, 'Session not found'));
         return;
       }
 
       if (session.userId !== user.id) {
-        res.status(403).json({
-          success: false,
-          error: 'Access denied to this session'
-        });
+        res.status(403).json(errorResponse(403, 'Access denied to this session'));
         return;
       }
 
-      res.json({
-        success: true,
-        data: {
-          session: {
-            id: session.id,
-            status: session.status,
-            duration: session.duration,
-            startTime: session.startTime,
-            agentId: session.agentId,
-            clientType: session.clientType
-          }
+      res.json(okResponse({
+        session: {
+          id: session.id,
+          status: session.status,
+          duration: session.duration,
+          startTime: session.startTime,
+          agentId: session.agentId,
+          clientType: session.clientType
         }
-      });
+      }));
 
     } catch (error) {
-      console.error('❌ Error getting conversation status:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to get conversation status',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('getConversationStatus_error', { error: error instanceof Error ? error.message : 'unknown' });
+      res.status(500).json(errorResponse(500, 'Failed to get conversation status'));
     }
   }
 
@@ -271,29 +222,23 @@ class VoiceController {
   public async getUserVoiceUsage(req: Request, res: Response): Promise<void> {
     try {
       const user = req.user!;
-      const usage = await sessionManager.getUserDailyUsage(user.id);
+      const userKey = user.uuid || user.id;
+      const usage = await sessionManager.getUserDailyUsage(userKey);
 
-      res.json({
-        success: true,
-        data: {
-          usage: {
-            totalDuration: usage.totalDuration,
-            sessionCount: usage.sessionCount,
-            limit: usage.limit,
-            remainingTime: Math.max(0, usage.limit - usage.totalDuration),
-            isLimitReached: usage.isLimitReached,
-            date: usage.date
-          }
+      res.json(okResponse({
+        usage: {
+          totalDuration: usage.totalDuration,
+          sessionCount: usage.sessionCount,
+          limit: usage.limit,
+          remainingTime: Math.max(0, usage.limit - usage.totalDuration),
+          isLimitReached: usage.isLimitReached,
+          date: usage.date
         }
-      });
+      }));
 
     } catch (error) {
-      console.error('❌ Error getting voice usage:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to get voice usage',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('getUserVoiceUsage_error', { error: error instanceof Error ? error.message : 'unknown' });
+      res.status(500).json(errorResponse(500, 'Failed to get voice usage'));
     }
   }
 
@@ -306,28 +251,21 @@ class VoiceController {
       const user = req.user!;
       const sessions = sessionManager.getUserSessions(user.id);
 
-      res.json({
-        success: true,
-        data: {
-          sessions: sessions.map(session => ({
-            id: session.id,
-            agentId: session.agentId,
-            status: session.status,
-            duration: session.duration,
-            startTime: session.startTime,
-            clientType: session.clientType
-          })),
-          total: sessions.length
-        }
-      });
+      res.json(okResponse({
+        sessions: sessions.map(session => ({
+          id: session.id,
+          agentId: session.agentId,
+          status: session.status,
+          duration: session.duration,
+          startTime: session.startTime,
+          clientType: session.clientType
+        })),
+        total: sessions.length
+      }));
 
     } catch (error) {
-      console.error('❌ Error getting active sessions:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to get active sessions',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('getUserActiveSessions_error', { error: error instanceof Error ? error.message : 'unknown' });
+      res.status(500).json(errorResponse(500, 'Failed to get active sessions'));
     }
   }
 
@@ -342,28 +280,43 @@ class VoiceController {
 
       const overallHealth = elevenLabsHealth.status === 'healthy' ? 'healthy' : 'unhealthy';
 
-      res.json({
-        success: true,
-        data: {
-          status: overallHealth,
-          timestamp: new Date().toISOString(),
-          services: {
-            elevenlabs: elevenLabsHealth,
-            sessions: {
-              status: 'healthy',
-              stats: serviceStats
-            }
+      res.json(okResponse({
+        status: overallHealth,
+        timestamp: new Date().toISOString(),
+        services: {
+          elevenlabs: elevenLabsHealth,
+          sessions: {
+            status: 'healthy',
+            stats: serviceStats
           }
         }
-      });
+      }));
 
     } catch (error) {
-      console.error('❌ Health check error:', error);
-      res.status(503).json({
-        success: false,
-        error: 'Health check failed',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('healthCheck_error', { error: error instanceof Error ? error.message : 'unknown' });
+      res.status(503).json(errorResponse(503, 'Health check failed'));
+    }
+  }
+
+  /**
+   * GET /api/voice/rekeep/me
+   * Test connectivity with ReKeep API and return uuid
+   */
+  public async rekeepMe(req: Request, res: Response): Promise<void> {
+    try {
+      const token = (req.headers['x-api-token'] as string) || (req.headers.authorization?.startsWith('Bearer ') ? req.headers.authorization.substring(7) : undefined);
+      if (!token) {
+        res.status(400).json({ success: false, error: 'Missing token. Provide X-API-TOKEN or Authorization: Bearer' });
+        return;
+      }
+      const me = await fetchUserMe(token);
+      if (!me?.data?.uuid) {
+        res.status(502).json({ success: false, error: 'Failed to fetch uuid from ReKeep' });
+        return;
+      }
+      res.json({ success: true, data: { uuid: me.data.uuid, first_name: me.data.client_profile?.first_name, last_name: me.data.client_profile?.last_name } });
+    } catch (error) {
+      res.status(500).json({ success: false, error: 'ReKeep check failed', details: error instanceof Error ? error.message : 'Unknown error' });
     }
   }
 
@@ -377,10 +330,7 @@ class VoiceController {
       const { conversationId } = req.params;
       
       if (!conversationId) {
-        res.status(400).json({
-          success: false,
-          error: 'Missing conversationId parameter'
-        });
+      res.status(400).json(errorResponse(400, 'Missing conversationId parameter'));
         return;
       }
 
@@ -388,11 +338,7 @@ class VoiceController {
       const userContext = elevenLabsService.getUserContextForConversation(conversationId);
       
       if (!userContext) {
-        res.status(404).json({
-          success: false,
-          error: 'User context not found for conversation',
-          conversationId
-        });
+        res.status(404).json(errorResponse(404, 'User context not found for conversation'));
         return;
       }
 
@@ -407,21 +353,11 @@ class VoiceController {
 
       console.log(`🔧 Server Tools: Provided user context for conversation ${conversationId}`);
 
-      res.status(200).json({
-        success: true,
-        data: {
-          userContext: safeContext,
-          message: `Hello ${userContext.user_name}! I have your context now.`
-        }
-      });
+      res.status(200).json(okResponse({ userContext: safeContext, message: `Hello ${userContext.user_name}! I have your context now.` }));
 
     } catch (error) {
-      console.error('❌ Error getting user context for Server Tools:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to get user context',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('getUserContext_error', { error: error instanceof Error ? error.message : 'unknown' });
+      res.status(500).json(errorResponse(500, 'Failed to get user context'));
     }
   }
 
@@ -434,10 +370,7 @@ class VoiceController {
       const { encryptedData } = req.body;
       
       if (!encryptedData) {
-        res.status(400).json({
-          success: false,
-          error: 'Missing encryptedData parameter'
-        });
+      res.status(400).json(errorResponse(400, 'Missing encryptedData parameter'));
         return;
       }
 
@@ -446,21 +379,11 @@ class VoiceController {
 
       console.log(`🔓 Server Tools: Decrypted user context for conversation`);
 
-      res.status(200).json({
-        success: true,
-        data: {
-          decryptedContext: decryptedData,
-          message: `Decrypted user context successfully`
-        }
-      });
+      res.status(200).json(okResponse({ decryptedContext: decryptedData, message: 'Decrypted user context successfully' }));
 
     } catch (error) {
-      console.error('❌ Error decrypting user context for Server Tools:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to decrypt user context',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('decryptUserContext_error', { error: error instanceof Error ? error.message : 'unknown' });
+      res.status(500).json(errorResponse(500, 'Failed to decrypt user context'));
     }
   }
 
@@ -474,10 +397,7 @@ class VoiceController {
       const { endpoint, method = 'GET', data } = req.body;
       
       if (!conversationId || !endpoint) {
-        res.status(400).json({
-          success: false,
-          error: 'Missing required parameters: conversationId, endpoint'
-        });
+      res.status(400).json(errorResponse(400, 'Missing required parameters: conversationId, endpoint'));
         return;
       }
 
@@ -485,10 +405,7 @@ class VoiceController {
       const userContext = elevenLabsService.getUserContextForConversation(conversationId);
       
       if (!userContext) {
-        res.status(404).json({
-          success: false,
-          error: 'User context not found for conversation'
-        });
+        res.status(404).json(errorResponse(404, 'User context not found for conversation'));
         return;
       }
 
@@ -506,22 +423,11 @@ class VoiceController {
 
       console.log(`🔧 Server Tools: Made authenticated API call for conversation ${conversationId} to ${endpoint}`);
 
-      res.status(200).json({
-        success: true,
-        data: {
-          response: result,
-          status: response.status,
-          endpoint
-        }
-      });
+      res.status(200).json(okResponse({ response: result, status: response.status, endpoint }));
 
     } catch (error) {
-      console.error('❌ Error making authenticated API call for Server Tools:', error);
-      res.status(500).json({
-        success: false,
-        error: 'Failed to make authenticated API call',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('makeAuthenticatedCall_error', { error: error instanceof Error ? error.message : 'unknown' });
+      res.status(500).json(errorResponse(500, 'Failed to make authenticated API call'));
     }
   }
 }
