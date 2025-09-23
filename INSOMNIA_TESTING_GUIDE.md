@@ -17,7 +17,7 @@ The collection includes four environments:
 |-----------------|---------|-----------|-----------|
 | **Base Environment** | `http://localhost:3000` | `test-token-123` | Default testing |
 | **Local Development** | `http://localhost:3000` | `dev-token-456` | Development work |
-| **Staging Environment** | `http://localhost:3001` | `staging-token-789` | Staging tests |
+| **Staging Environment** | `http://localhost:8080` | `staging-token-789` | Staging tests |
 | **Production Environment** | `https://your-domain.com` | `your-production-token` | Production (update URL/token) |
 
 **Default settings (Base Environment):**

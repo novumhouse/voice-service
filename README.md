@@ -90,7 +90,7 @@ A standalone microservice that provides RESTful APIs for ElevenLabs voice conver
 app.use(helmet(), cors(), compression())
 app.use('/api/voice', voiceRoutes)
 ```
-- **Port**: 3001 (configurable)
+- **Port**: 8080 (configurable)
 - **Middleware**: Security, CORS, Rate Limiting, Request Logging
 - **Health Check**: `/health` endpoint
 - **API Documentation**: `/api/voice` endpoint
@@ -258,7 +258,7 @@ nano .env
 ```bash
 # Server Configuration
 NODE_ENV=development
-PORT=3001
+PORT=8080
 
 # ElevenLabs Configuration
 ELEVENLABS_API_KEY=sk_your_elevenlabs_api_key_here
@@ -291,9 +291,9 @@ yarn install
 yarn dev
 
 # The service will be available at:
-# - API: http://localhost:3001
-# - Health Check: http://localhost:3001/health
-# - Documentation: http://localhost:3001/api/voice
+# - API: http://localhost:8080
+# - Health Check: http://localhost:8080/health
+# - Documentation: http://localhost:8080/api/voice
 
 # Build for production
 yarn build
@@ -303,7 +303,7 @@ yarn start
 ```
 
 **Development Notes**:
-- Service runs on port 3001 by default
+- Service runs on port 8080 by default
 - Hot reload enabled in development mode
 - TypeScript compilation with source maps
 - Automatic agent configuration validation on startup
@@ -316,7 +316,7 @@ yarn start
 docker build -t voice-service .
 
 # Run container
-docker run -p 3001:3001 --env-file .env voice-service
+docker run -p 8080:8080 --env-file .env voice-service
 ```
 
 ### Docker Compose (Recommended)
@@ -398,7 +398,7 @@ const { conversationData } = await client.startConversation('agent_1', 'conv_123
 import { VoiceServiceClient } from './voice-service-client';
 
 const client = new VoiceServiceClient(
-  'http://localhost:3001',
+  'http://localhost:8080',
   '1711|JPcIqtiocWWw0XUDu94YsyaoVw3n6ZST50n9rxtJ90e4e4f6'
 );
 
@@ -427,7 +427,7 @@ await client.endConversation(sessionId);
 
 ```dart
 final client = VoiceServiceClient(
-  baseUrl: 'http://localhost:3001',
+  baseUrl: 'http://localhost:8080',
   userToken: '1711|JPcIqtiocWWw0XUDu94YsyaoVw3n6ZST50n9rxtJ90e4e4f6',
 );
 
@@ -463,12 +463,12 @@ await client.endConversation(result['sessionId']);
 ```bash
 # Get agents
 curl -X GET \
-  'http://localhost:3001/api/voice/agents' \
+  'http://localhost:8080/api/voice/agents' \
   -H 'X-API-TOKEN: 1711|JPcIqtiocWWw0XUDu94YsyaoVw3n6ZST50n9rxtJ90e4e4f6'
 
 # Start conversation
 curl -X POST \
-  'http://localhost:3001/api/voice/conversations/start' \
+  'http://localhost:8080/api/voice/conversations/start' \
   -H 'X-API-TOKEN: 1711|JPcIqtiocWWw0XUDu94YsyaoVw3n6ZST50n9rxtJ90e4e4f6' \
   -H 'Content-Type: application/json' \
   -d '{
@@ -479,17 +479,17 @@ curl -X POST \
 
 # Get usage statistics
 curl -X GET \
-  'http://localhost:3001/api/voice/sessions/usage' \
+  'http://localhost:8080/api/voice/sessions/usage' \
   -H 'X-API-TOKEN: 1711|JPcIqtiocWWw0XUDu94YsyaoVw3n6ZST50n9rxtJ90e4e4f6'
 
 # List ALL active sessions (admin)
 curl -X GET \
-  'http://localhost:3001/api/voice/admin/sessions' \
+  'http://localhost:8080/api/voice/admin/sessions' \
   -H 'Authorization: Bearer your_admin_api_key_here'
 
 # End ALL active sessions (admin)
 curl -X POST \
-  'http://localhost:3001/api/voice/admin/sessions/end' \
+  'http://localhost:8080/api/voice/admin/sessions/end' \
   -H 'Authorization: Bearer your_admin_api_key_here'
 ```
 
@@ -527,12 +527,12 @@ The service supports 4 configurable agents:
 
 ### Health Check Endpoint
 ```bash
-curl http://localhost:3001/health
+curl http://localhost:8080/health
 ```
 
 ### Service Statistics
 ```bash
-curl http://localhost:3001/api/voice/health
+curl http://localhost:8080/api/voice/health
 ```
 
 ### Docker Health Check
@@ -557,7 +557,7 @@ pm2 logs voice-service
 - **Configurable**: via VOICE_TIME_LIMIT environment variable
 
 ### CORS Configuration
-- **Default**: localhost:3000, localhost:3001
+- **Default**: localhost:3000, localhost:8080
 - **Configurable**: via ALLOWED_ORIGINS environment variable
 
 ## 🚨 Error Handling
@@ -629,8 +629,8 @@ npm run test:watch
 npm run test:coverage
 
 # Manual API testing
-curl http://localhost:3001/health
-curl -H "X-API-TOKEN: your_token" http://localhost:3001/api/voice/agents
+curl http://localhost:8080/health
+curl -H "X-API-TOKEN: your_token" http://localhost:8080/api/voice/agents
 ```
 
 **Note**: Test suite is configured but tests need to be implemented. The service includes comprehensive error handling and logging for debugging.
@@ -676,7 +676,7 @@ This project is licensed under the MIT License.
 For support and questions:
 - Create an issue on [GitHub](https://github.com/novumhouse/rekeep-voice-service/issues)
 - Contact the ReKeep development team
-- Check the API documentation at `http://localhost:3001/api/voice`
+- Check the API documentation at `http://localhost:8080/api/voice`
 
 ## 🔗 Related Repositories
 

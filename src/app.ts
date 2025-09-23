@@ -14,7 +14,7 @@ import { errorResponse } from './utils/http.js';
 import { logger } from './utils/logger.js';
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 8080;
 
 // Security middleware
 app.use(helmet({
@@ -25,7 +25,7 @@ app.use(helmet({
 app.use(cors({
   origin: process.env.ALLOWED_ORIGINS?.split(',') || [
     'http://localhost:3000',
-    'http://localhost:3001',
+    'http://localhost:8080',
     'https://your-web-app.com'
   ],
   credentials: true,

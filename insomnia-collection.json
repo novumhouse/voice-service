@@ -472,7 +472,7 @@
       "created": 1695456900000,
       "name": "Local Development",
       "data": {
-        "base_url": "http://localhost:3001",
+        "base_url": "http://localhost:8080",
         "api_token": "dev-token-456", //X-API-TOKEN from rekeep
         "timestamp": "{% now 'unix' %}"
       },
@@ -495,7 +495,7 @@
       "created": 1695456900000,
       "name": "Staging Environment",
       "data": {
-        "base_url": "http://localhost:3001",
+        "base_url": "http://localhost:8080",
         "api_token": "staging-token-789",
         "timestamp": "{% now 'unix' %}"
       },

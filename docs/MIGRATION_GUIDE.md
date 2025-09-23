@@ -18,7 +18,7 @@ Create the client utility in your frontend:
 import { VoiceServiceClient } from '../path/to/voice-service-client';
 
 export const voiceServiceClient = new VoiceServiceClient(
-  process.env.NEXT_PUBLIC_VOICE_SERVICE_URL || 'http://localhost:3001',
+  process.env.NEXT_PUBLIC_VOICE_SERVICE_URL || 'http://localhost:8080',
   currentUser.token
 );
 ```
@@ -210,7 +210,7 @@ export function VoiceModeToggle(props: VoiceModeToggleProps) {
 **Add to your frontend .env**:
 ```bash
 # Voice Service Configuration
-NEXT_PUBLIC_VOICE_SERVICE_URL=http://localhost:3001
+NEXT_PUBLIC_VOICE_SERVICE_URL=http://localhost:8080
 
 # Remove these (now handled by Voice Service):
 # ELEVENLABS_API_KEY - moved to Voice Service
@@ -302,8 +302,8 @@ flutter run
 
 If you encounter issues during migration:
 1. Check Voice Service logs: `docker-compose logs voice-service`
-2. Test Voice Service health: `curl http://localhost:3001/health`
-3. Verify agent configuration: `curl http://localhost:3001/api/voice/agents`
+2. Test Voice Service health: `curl http://localhost:8080/health`
+3. Verify agent configuration: `curl http://localhost:8080/api/voice/agents`
 
 ---
 

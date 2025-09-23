@@ -385,7 +385,7 @@ function VoiceChat() {
 // Usage Example
 async function exampleUsage() {
   const client = new VoiceServiceClient(
-    'http://localhost:3001',
+    'http://localhost:8080',
     '1711|JPcIqtiocWWw0XUDu94YsyaoVw3n6ZST50n9rxtJ90e4e4f6'
   );
 

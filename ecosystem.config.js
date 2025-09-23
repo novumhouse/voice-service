@@ -14,7 +14,7 @@ module.exports = {
       // Environment variables
       env: {
         NODE_ENV: 'production',
-        PORT: 3001,
+        PORT: 8080,
       },
       
       // Logging
@@ -59,7 +59,7 @@ module.exports = {
       
       env: {
         NODE_ENV: 'production',
-        PORT: 3001,
+        PORT: 8080,
       }
     },
     
