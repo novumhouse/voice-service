@@ -11,8 +11,6 @@ A standalone microservice that provides RESTful APIs for ElevenLabs voice conver
 ✅ **Direct WebRTC** - Optimized for <100ms latency  
 ✅ **Docker Ready** - Full containerization support  
 ✅ **Documentation Complete** - Comprehensive guides and examples  
-✅ **ElevenLabs Overrides** - Native user personalization support  
-✅ **Fully Tested** - Comprehensive API testing with unity & integrity verification  
 
 **Latest Version**: 1.0.0 🎉
 
@@ -165,8 +163,8 @@ sequenceDiagram
     VS->>VS: Create session in SessionManager
     VS->>EL: GET /v1/convai/conversation/token?agent_id=X
     EL-->>VS: WebRTC token + configuration
-    VS->>VS: Prepare overrides (user personalization)
-    VS-->>C: { sessionId, token, overrides }
+    VS->>VS: Prepare dynamic variables (user context)
+    VS-->>C: { sessionId, token, dynamicVariables }
     
     Note over C,WR: 🎤 VOICE PHASE (Data Plane - Direct)
     C->>WR: Start WebRTC session (DIRECT to ElevenLabs)
@@ -196,8 +194,6 @@ sequenceDiagram
 - **📊 Health Monitoring**: Built-in health checks and metrics
 - **🚀 Scalable**: Docker and PM2 deployment ready
 - **⚡ Rate Limiting**: Built-in rate limiting and security
-- **🎤 ElevenLabs Overrides**: Native user personalization with immediate greeting
-- **🧪 Fully Tested**: Comprehensive test coverage with unity & integrity verification
 
 ## 📋 API Endpoints
 
@@ -356,15 +352,15 @@ yarn pm2:stop
 
 ## 📊 Usage Examples
 
-### 🔑 **User Context & ElevenLabs Overrides**
+### 🔑 **User Context & Dynamic Variables**
 
-The Voice Service uses **ElevenLabs Overrides** for optimal user personalization:
+The Voice Service automatically extracts user context and passes it to ElevenLabs agents:
 
 ```typescript
 // When you call startConversation(), the service automatically:
 // 1. Extracts user ID from token (e.g., "1711" from "1711|JPcIqtiocWWw...")
 // 2. Fetches user profile from ReKeep API (name, uuid, etc.)
-// 3. Prepares overrides for ElevenLabs agent personalization
+// 3. Prepares dynamic variables for the ElevenLabs agent
 
 const { conversationData } = await client.startConversation('agent_1', 'conv_123');
 
@@ -373,14 +369,13 @@ const { conversationData } = await client.startConversation('agent_1', 'conv_123
 //   token: "eyJhbGciOiJIUzI1NiIs...",  // WebRTC JWT token for direct connection
 //   agentId: "agent_7401k56rrgbme4bvmb49ym9annev",
 //   connectionType: "webrtc",
-//   overrides: {                      // ✅ NEW: ElevenLabs Overrides approach
-//     agent: {
-//       prompt: {
-//         prompt: "You are a helpful Polish voice assistant. The user's name is Rafał (ID: 1711). Personalize your responses and greet them by name."
-//       },
-//       firstMessage: "Cześć Rafał! Miło Cię poznać. W czym mogę Ci dzisiaj pomóc?",
-//       language: "pl"
-//     }
+//   dynamicVariables: {
+//     user_id: "1711",
+//     user_uuid: "uuid-from-rekeep-api", 
+//     user_name: "Rafał Kowalski",        // Fetched from ReKeep API
+//     user_token: "1711|JPcIqtiocWWw...", // Original auth token
+//     bearer_token: "Bearer 1711|JPcIq...", // For agent API calls
+//     conversation_id: "conv_123"
 //   }
 // }
 ```
@@ -404,21 +399,11 @@ const { sessionId, conversationData } = await client.startConversation(
   'conversation_123'
 );
 
-// Use the WebRTC token for DIRECT ElevenLabs connection with overrides
-// Two implementation options:
-
-// OPTION A: Using ElevenLabs SDK (Web only)
-const conversation = new Conversation();
-const sessionId = await conversation.startSession({
-  conversationToken: conversationData.token,
-  connectionType: 'webrtc',
-  overrides: conversationData.overrides  // Apply user personalization
-});
-
-// OPTION B: Direct WebRTC (Universal - Web, Flutter, Mobile)
+// Use the WebRTC token for DIRECT ElevenLabs connection
+// (No ElevenLabs SDK required - implement WebRTC directly)
 const webrtcConnection = await establishDirectWebRTC({
   token: conversationData.token,           // JWT for WebRTC room
-  overrides: conversationData.overrides,  // User personalization
+  dynamicVariables: conversationData.dynamicVariables, // User context
   connectionType: conversationData.connectionType      // 'webrtc'
 });
 
@@ -446,15 +431,15 @@ final result = await client.startConversation(
 // Extract WebRTC connection data
 final conversationData = result['conversationData'];
 final webrtcToken = conversationData['token'];           // JWT for WebRTC room
-final overrides = conversationData['overrides'];         // User personalization
+final dynamicVariables = conversationData['dynamicVariables']; // User context
 final roomInfo = decodeJWT(webrtcToken);                 // Room name, permissions
 
-// Establish direct WebRTC connection to ElevenLabs with overrides
+// Establish direct WebRTC connection to ElevenLabs
 // (No ElevenLabs Flutter SDK - implement WebRTC directly)
 final webrtcConnection = await FlutterWebRTC.connect(
   roomName: roomInfo['video']['room'],
   permissions: roomInfo['video'],
-  overrides: overrides,  // Apply user personalization
+  userContext: dynamicVariables,
 );
 
 // End conversation
@@ -511,10 +496,10 @@ The service supports 4 configurable agents:
 
 | Agent ID | Environment Variable | Specialization |
 |----------|---------------------|----------------|
-| agent_1  | AGENT_1_ID          |  |
-| agent_2  | AGENT_2_ID          |  |
-| agent_3  | AGENT_3_ID          |  |
-| agent_4  | AGENT_4_ID          |  |
+| agent_1  | AGENT_1_ID          | Customer Support |
+| agent_2  | AGENT_2_ID          | Diet Consultation |
+| agent_3  | AGENT_3_ID          | Sales |
+| agent_4  | AGENT_4_ID          | Technical Support |
 
 ## 📈 Monitoring & Health Checks
 
@@ -611,29 +596,22 @@ voice-service/
 - **Client Examples**: `examples/` directory
 
 ### Testing
-
-The Voice Service has been **comprehensively tested** with full unity and integrity verification:
-
 ```bash
-# Manual API testing (comprehensive test suite completed ✅)
-curl http://localhost:3001/health                    # ✅ Service health
-curl -H "X-API-TOKEN: your_token" http://localhost:3001/api/voice/agents  # ✅ Agent listing
-curl -X POST http://localhost:3001/api/voice/conversations/start ...      # ✅ Overrides flow
-curl http://localhost:3001/api/voice/sessions/usage  # ✅ Usage tracking
-curl http://localhost:3001/api/voice/tools/decrypt   # ✅ Server Tools
+# Run tests (when implemented)
+npm test
+
+# Run tests in watch mode
+npm run test:watch
+
+# Run tests with coverage
+npm run test:coverage
+
+# Manual API testing
+curl http://localhost:3001/health
+curl -H "X-API-TOKEN: your_token" http://localhost:3001/api/voice/agents
 ```
 
-**✅ Test Results Summary:**
-- **API Health**: Service healthy, 185s uptime, all endpoints documented
-- **Agent Management**: 4 agents configured, all Polish language, proper specializations  
-- **Overrides Flow**: User context embedded in overrides, Polish greeting generated
-- **JWT Validation**: WebRTC token valid, room permissions correct, 15min expiry
-- **Server Tools**: Decryption endpoint working, user context retrieval functional
-- **Session Management**: Active session tracking, usage limits enforced
-- **Error Handling**: Invalid agents rejected, authentication required
-- **System Integrity**: TypeScript compiles, no linting errors, service healthy
-
-**🎯 Production Ready**: All tests pass with full unity, integrity, and reliability verified.
+**Note**: Test suite is configured but tests need to be implemented. The service includes comprehensive error handling and logging for debugging.
 
 ### Linting
 ```bash
@@ -659,3 +637,30 @@ Detailed architecture and implementation guides:
 - **[Latency Comparison](LATENCY_COMPARISON.md)** - Performance analysis and optimization
 - **[Migration Guide](MIGRATION_GUIDE.md)** - Migrating from existing ElevenLabs integration
 
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests
+5. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License.
+
+## 🆘 Support
+
+For support and questions:
+- Create an issue on [GitHub](https://github.com/novumhouse/rekeep-voice-service/issues)
+- Contact the ReKeep development team
+- Check the API documentation at `http://localhost:3001/api/voice`
+
+## 🔗 Related Repositories
+
+- **[ReKeep UI](https://github.com/novumhouse/rekeep-ui)** - Main frontend application
+- **[ReKeep Voice Service](https://github.com/novumhouse/rekeep-voice-service)** - This voice service API
+
+---
+
+**Made with ❤️ by the ReKeep Team**

@@ -60,14 +60,13 @@ const { sessionId, conversationData } = await voiceServiceClient.startConversati
 //   token: "eyJhbGciOiJIUzI1NiIs...",  // WebRTC JWT token (NOT user data)
 //   agentId: "agent_7401k56rrgbme4bvmb49ym9annev", 
 //   connectionType: "webrtc",
-//   overrides: {                     // ✅ ElevenLabs Overrides for personalization
-//     agent: {
-//       prompt: {
-//         prompt: "You are a helpful Polish voice assistant. The user's name is Rafał (ID: 1711). Personalize your responses and greet them by name."
-//       },
-//       firstMessage: "Cześć Rafał! Miło Cię poznać. W czym mogę Ci dzisiaj pomóc?",
-//       language: "pl"
-//     }
+//   dynamicVariables: {              // User context for ElevenLabs agent
+//     user_id: "1711",              // Extracted from auth token
+//     user_uuid: "uuid-123-456",    // Fetched from ReKeep API
+//     user_name: "Rafał Kowalski",  // Fetched from ReKeep API
+//     user_token: "1711|JPcIqtiocWWw0XUDu94YsyaoVw3n6ZST50n9rxtJ90e4e4f6",
+//     bearer_token: "Bearer 1711|JPcIqtiocWWw0XUDu94YsyaoVw3n6ZST50n9rxtJ90e4e4f6",
+//     conversation_id: "conversation_123"
 //   }
 // }
 ```
@@ -134,7 +133,7 @@ const conversation = new Conversation();
 const elevenLabsSessionId = await conversation.startSession({
   conversationToken: conversationData.token,        // WebRTC JWT token
   connectionType: 'webrtc',                         // Direct connection
-  overrides: conversationData.overrides,           // ✅ User personalization via overrides
+  dynamicVariables: conversationData.dynamicVariables, // User context
   
   onConnect: () => {
     console.log('🎤 DIRECT WebRTC connection established');
@@ -155,7 +154,7 @@ const permissions = tokenPayload.video;
 const webrtcConnection = await establishDirectWebRTC({
   roomName: roomName,                               // From JWT token
   permissions: permissions,                         // From JWT token
-  overrides: conversationData.overrides,           // ✅ User personalization via overrides
+  userContext: conversationData.dynamicVariables,  // User variables for agent
   elevenLabsWebRTCEndpoint: 'wss://api.elevenlabs.io/webrtc' // ElevenLabs WebRTC endpoint
 });
 ```
@@ -240,7 +239,7 @@ class VoiceCallManager {
     const elevenLabsSessionId = await this.elevenLabsConversation.startSession({
       conversationToken: conversationData.token,
       connectionType: 'webrtc', // DIRECT CONNECTION
-      overrides: conversationData.overrides, // ✅ User personalization
+      dynamicVariables: conversationData.dynamicVariables,
       
       onConnect: () => {
         console.log('🎤 Direct WebRTC established - optimal latency');
@@ -290,7 +289,7 @@ class VoiceCallManager {
     await webRTCConnection!.startSession(
       token: result['conversationData']['token'],
       connectionType: 'webrtc', // DIRECT
-      overrides: result['conversationData']['overrides'], // ✅ User personalization
+      dynamicVariables: result['conversationData']['dynamicVariables'],
       
       onConnect: () {
         print('🎤 Flutter: Direct WebRTC connection established');

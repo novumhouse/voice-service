@@ -17,7 +17,6 @@
     "test:coverage": "jest --coverage",
     "docker:build": "docker build -t voice-service .",
     "docker:run": "docker run -p 3001:3001 --env-file .env voice-service",
-    "yarn:install": "yarn install",
     "pm2:start": "pm2 start ecosystem.config.js",
     "pm2:stop": "pm2 stop voice-service",
     "pm2:restart": "pm2 restart voice-service"
@@ -55,14 +54,14 @@
   },
   "engines": {
     "node": ">=18.0.0",
-    "yarn": ">=1.22.0"
+    "npm": ">=8.0.0"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/miekki-jerry/rekeep-voice.git"
+    "url": "https://github.com/novumhouse/rekeep-voice-service.git"
   },
   "bugs": {
-    "url": "https://github.com/miekki-jerry/rekeep-voice/issues"
+    "url": "https://github.com/novumhouse/rekeep-voice-service/issues"
   },
-  "homepage": "https://github.com/miekki-jerry/rekeep-voice#readme"
+  "homepage": "https://github.com/novumhouse/rekeep-voice-service#readme"
 }

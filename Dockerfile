@@ -7,17 +7,18 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY package.json yarn.lock ./
 COPY tsconfig.json ./
 
 # Install dependencies
-RUN npm ci --only=production --silent
+RUN apk add --no-cache yarn \
+  && yarn install --frozen-lockfile
 
 # Copy source code
 COPY src/ ./src/
 
 # Build the application
-RUN npm run build
+RUN yarn build
 
 # Production stage
 FROM node:20-alpine AS production
@@ -32,7 +33,7 @@ WORKDIR /app
 # Copy built application from builder stage
 COPY --from=builder --chown=voiceservice:nodejs /app/dist ./dist
 COPY --from=builder --chown=voiceservice:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=voiceservice:nodejs /app/package*.json ./
+COPY --from=builder --chown=voiceservice:nodejs /app/package.json ./
 
 # Create logs directory
 RUN mkdir -p /app/logs && chown voiceservice:nodejs /app/logs

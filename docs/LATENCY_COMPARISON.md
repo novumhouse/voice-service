@@ -144,7 +144,7 @@ class OptimizedVoiceCallWithSDK {
       conversationToken: conversationData.token,        // WebRTC JWT token
       connectionType: 'webrtc',                         // DIRECT - no proxy
       configuration: this.webRTCConfig,                 // Latency-optimized
-      overrides: conversationData.overrides,           // ✅ User personalization
+      dynamicVariables: conversationData.dynamicVariables, // User context
       
       onConnect: () => {
         console.timeEnd('🚀 Connection Setup Time');
@@ -180,14 +180,14 @@ class OptimizedVoiceCallDirect {
       room: roomName,
       canPublish: permissions.canPublish,
       canSubscribe: permissions.canSubscribe,
-      overrides: conversationData.overrides // ✅ User personalization
+      userContext: conversationData.dynamicVariables
     });
     
     // 3. Establish direct WebRTC connection (no SDK required)
     const webrtcConnection = await this.connectToElevenLabsWebRTC({
       roomName: roomName,
       permissions: permissions,
-      overrides: conversationData.overrides, // ✅ User personalization
+      userContext: conversationData.dynamicVariables,
       config: {
         iceServers: [{ urls: 'stun:stun.l.google.com:19302' }],
         iceCandidatePoolSize: 10
@@ -241,7 +241,7 @@ class OptimizedFlutterVoiceCall {
       
       final conversationData = result['conversationData'];
       final webrtcToken = conversationData['token'];
-      final overrides = conversationData['overrides']; // ✅ User personalization
+      final dynamicVariables = conversationData['dynamicVariables'];
       
       // 2. Decode JWT token to get WebRTC room information
       final tokenPayload = _decodeJWT(webrtcToken);
@@ -250,13 +250,13 @@ class OptimizedFlutterVoiceCall {
       
       print('🔍 Flutter WebRTC Room Info:');
       print('  Room: $roomName');
-      print('  Overrides: $overrides');
+      print('  User Context: $dynamicVariables');
       
       // 3. Establish DIRECT WebRTC connection using flutter_webrtc
       final webRTCConnection = await _connectToElevenLabsWebRTC(
         roomName: roomName,
         permissions: permissions,
-        overrides: overrides, // ✅ User personalization
+        userContext: dynamicVariables,
         configuration: webRTCConfig,
       );
       
@@ -273,14 +273,14 @@ class OptimizedFlutterVoiceCall {
   Future<RTCPeerConnection> _connectToElevenLabsWebRTC({
     required String roomName,
     required Map<String, dynamic> permissions,
-    required Map<String, dynamic> overrides, // ✅ User personalization
+    required Map<String, dynamic> userContext,
     required RTCConfiguration configuration,
   }) async {
     // Use flutter_webrtc package for direct WebRTC connection
     final peerConnection = await createPeerConnection(configuration);
     
     // Connect to ElevenLabs WebRTC endpoint using room name
-    // Apply overrides for user personalization (handled by ElevenLabs)
+    // Pass user context to agent (user_name, user_id, etc.)
     
     // Set up audio stream handling
     peerConnection.onTrack = (RTCTrackEvent event) {
