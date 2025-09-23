@@ -22,7 +22,6 @@ interface VoiceAgent {
 
 interface VoiceSession {
   id: string;
-  userId: string;
   agentId: string;
   status: string;
   startTime: string;

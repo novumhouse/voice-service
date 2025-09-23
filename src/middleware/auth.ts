@@ -40,21 +40,6 @@ interface RekeepClientMeResponse {
 }
 
 /**
- * Extract user ID from token (format: "1711|rest_of_token")
- */
-function getUserIdFromToken(token: string): string {
-  const parts = token.split('|');
-  return parts[0] || '';
-}
-
-/**
- * Extract user name from token or use fallback
- */
-function getUserNameFromToken(token: string, fallback = 'User'): string {
-  return fallback;
-}
-
-/**
  * Fetch user profile from existing API
  */
 export async function fetchUserMe(token: string): Promise<RekeepClientMeResponse | null> {
@@ -91,28 +76,25 @@ export async function fetchUserMe(token: string): Promise<RekeepClientMeResponse
 export async function authenticateUser(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     let userToken: string | null = null;
-    let userId: string = '';
     let userName: string = 'User';
 
     // Method 1: X-API-TOKEN header (preferred)
     const xApiToken = req.headers['x-api-token'] as string;
     if (xApiToken) {
       userToken = xApiToken;
-      userId = getUserIdFromToken(xApiToken);
-      logger.info('Authentication via X-API-TOKEN', { userId });
+      logger.info('Authentication via X-API-TOKEN');
     }
     // Method 2: Authorization Bearer token
     else if (req.headers.authorization) {
       const authHeader = req.headers.authorization;
       if (authHeader.startsWith('Bearer ')) {
         userToken = authHeader.substring(7);
-        userId = getUserIdFromToken(userToken);
-        logger.info('Authentication via Authorization Bearer', { userId });
+        logger.info('Authentication via Authorization Bearer');
       }
     }
     // No environment fallback: require explicit token
 
-    if (!userToken || !userId) {
+    if (!userToken) {
       res.status(401).json(errorResponse(401, 'Unauthorized: invalid or missing token'));
       return;
     }
@@ -147,15 +129,14 @@ export async function authenticateUser(req: Request, res: Response, next: NextFu
       }
     }
 
-    // Attach user context to request
+    // Attach user context to request (uuid only)
     req.user = {
-      id: userId,
       name: userName,
       token: userToken,
       uuid: userProfile?.data?.uuid || userProfile?.data?.client_profile?.uuid || undefined
     };
 
-    logger.info('Authenticated user', { userId, userName, uuid: req.user.uuid });
+    logger.info('Authenticated user', { userName, uuid: req.user.uuid });
     next();
 
   } catch (error) {

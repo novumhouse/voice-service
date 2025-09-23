@@ -41,7 +41,6 @@ class VoiceAgent {
 
 class VoiceSession {
   final String id;
-  final String userId;
   final String agentId;
   final String status;
   final String startTime;
@@ -50,7 +49,6 @@ class VoiceSession {
 
   VoiceSession({
     required this.id,
-    required this.userId,
     required this.agentId,
     required this.status,
     required this.startTime,
@@ -61,7 +59,6 @@ class VoiceSession {
   factory VoiceSession.fromJson(Map<String, dynamic> json) {
     return VoiceSession(
       id: json['id'],
-      userId: json['userId'],
       agentId: json['agentId'],
       status: json['status'],
       startTime: json['startTime'],
@@ -388,7 +385,7 @@ class _VoiceConversationWidgetState extends State<VoiceConversationWidget> {
       // 4. Pass user context to agent via WebRTC data channels
       
       print('🔗 Connecting to ElevenLabs WebRTC room: $roomName');
-      print('👤 Agent will receive user context: ${userContext['user_name']}');
+      print('👤 Agent will receive user context server-side (not exposed to client)');
       
       // Store connection for cleanup
       _webrtcConnection = peerConnection;

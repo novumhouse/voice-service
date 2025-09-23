@@ -16,7 +16,6 @@ interface ElevenLabsTokenResponse {
 
 interface ConversationStartParams {
   agentId: string;
-  userId: string;
   userName: string;
   userToken: string;
   conversationId: string;
@@ -38,7 +37,6 @@ interface OverridesConversationResponse {
 }
 
 interface DynamicVariables {
-  user_id: string;
   user_uuid: string;
   user_name: string;
   user_token: string;
@@ -206,8 +204,7 @@ class ElevenLabsService {
    */
   public prepareDynamicVariables(params: ConversationStartParams): DynamicVariables {
     const dynamicVariables: DynamicVariables = {
-      user_id: params.userId,
-      user_uuid: params.userUuid || params.userId, // Fallback to userId if no UUID
+      user_uuid: params.userUuid || 'unknown',
       user_name: params.userName,
       user_token: params.userToken,
       bearer_token: `Bearer ${params.userToken}`,
@@ -215,14 +212,14 @@ class ElevenLabsService {
     };
 
     // Validate all required variables are present
-    const requiredVars = ['user_id', 'user_uuid', 'user_name', 'user_token', 'conversation_id'];
+    const requiredVars = ['user_uuid', 'user_name', 'user_token', 'conversation_id'];
     const missingVars = requiredVars.filter(varName => !dynamicVariables[varName as keyof DynamicVariables]);
     
     if (missingVars.length > 0) {
       throw new Error(`Missing required dynamic variables: ${missingVars.join(', ')}`);
     }
 
-    console.log('✅ Prepared dynamic variables for ElevenLabs agent:', {
+      console.log('✅ Prepared dynamic variables for ElevenLabs agent:', {
       ...dynamicVariables,
       user_token: dynamicVariables.user_token.substring(0, 10) + '...', // Hide full token in logs
     });
@@ -253,7 +250,7 @@ class ElevenLabsService {
       const overrides = {
         agent: {
           prompt: {
-            prompt: `You are a helpful Polish voice assistant. The user's name is ${dynamicVariables.user_name} (ID: ${dynamicVariables.user_id}). Personalize your responses and greet them by name.`
+            prompt: `You are a helpful Polish voice assistant. The user's name is ${dynamicVariables.user_name}. Personalize your responses and greet them by name.`
           },
           firstMessage: `Cześć ${dynamicVariables.user_name}! Miło Cię poznać. W czym mogę Ci dzisiaj pomóc?`,
           language: "pl" // Polish
@@ -306,7 +303,6 @@ class ElevenLabsService {
       const allUserData = {
         // User identification
         user_name: dynamicVariables.user_name,
-        user_id: dynamicVariables.user_id,
         user_uuid: dynamicVariables.user_uuid,
         conversation_id: dynamicVariables.conversation_id,
         

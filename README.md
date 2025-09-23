@@ -123,7 +123,7 @@ agent_4: Technical Support Agent (technical_support)
 ```typescript
 // Session lifecycle tracking
 VoiceSession {
-  id, userId, agentId, startTime, duration,
+  id, userUuid, agentId, startTime, duration,
   status: 'starting' | 'active' | 'ended',
   clientType: 'web' | 'flutter' | 'mobile'
 }

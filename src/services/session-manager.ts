@@ -5,8 +5,7 @@
 
 interface VoiceSession {
   id: string;
-  userId: string;
-  userUuid?: string;
+  userUuid: string;
   userName: string;
   userToken: string;
   conversationId: string;
@@ -21,7 +20,7 @@ interface VoiceSession {
 }
 
 interface UserVoiceUsage {
-  userId: string; // stores userUuid when available, else userId
+  userUuid: string; // uuid key for usage aggregation
   date: string;
   totalDuration: number;
   sessionCount: number;
@@ -42,8 +41,7 @@ class VoiceSessionManager {
    * Create a new voice session
    */
   public async createSession(params: {
-    userId: string;
-    userUuid?: string;
+    userUuid: string;
     userName: string;
     userToken: string;
     conversationId: string;
@@ -52,8 +50,8 @@ class VoiceSessionManager {
     metadata?: Record<string, any>;
   }): Promise<VoiceSession> {
     
-    // Check daily usage limit (prefer uuid if present)
-    const usageKey = params.userUuid || params.userId;
+    // Check daily usage limit (uuid)
+    const usageKey = params.userUuid;
     const usage = await this.getUserDailyUsage(usageKey);
     if (usage.isLimitReached) {
       throw new Error('Daily voice usage limit reached');
@@ -61,7 +59,6 @@ class VoiceSessionManager {
 
     const session: VoiceSession = {
       id: this.generateSessionId(),
-      userId: params.userId,
       userUuid: params.userUuid,
       userName: params.userName,
       userToken: params.userToken,
@@ -78,26 +75,22 @@ class VoiceSessionManager {
     
     console.log(`📱 Created voice session ${session.id} for user ${usageKey} (${params.clientType})`);
 
-    // Persist session start immediately if userUuid is available
+    // Persist session start immediately
     try {
-      if (session.userUuid) {
-        await db.insert(voiceSessions).values({
-          id: session.id,
-          userUuid: session.userUuid,
-          userName: session.userName,
-          conversationId: session.conversationId,
-          agentId: session.agentId,
-          elevenLabsConversationId: null,
-          status: 'starting',
-          clientType: session.clientType,
-          startTime: session.startTime as unknown as Date,
-          endTime: null,
-          durationSeconds: 0,
-          metadata: session.metadata || null,
-        });
-      } else {
-        console.warn('⚠️ Skipping DB insert on start: missing userUuid');
-      }
+      await db.insert(voiceSessions).values({
+        id: session.id,
+        userUuid: session.userUuid,
+        userName: session.userName,
+        conversationId: session.conversationId,
+        agentId: session.agentId,
+        elevenLabsConversationId: null,
+        status: 'starting',
+        clientType: session.clientType,
+        startTime: session.startTime as unknown as Date,
+        endTime: null,
+        durationSeconds: 0,
+        metadata: session.metadata || null,
+      });
     } catch (e) {
       console.warn('⚠️ Failed to persist session start, continuing:', e);
     }
@@ -114,15 +107,13 @@ class VoiceSessionManager {
       session.status = 'active';
       this.activeSessions.set(sessionId, session);
       // Update DB record if present
-      if (session.userUuid) {
-        db.update(voiceSessions)
-          .set({
-            elevenLabsConversationId,
-            status: 'active',
-          })
-          .where(eq(voiceSessions.id, sessionId))
-          .catch((e) => console.warn('⚠️ Failed to update session to active:', e));
-      }
+      db.update(voiceSessions)
+        .set({
+          elevenLabsConversationId,
+          status: 'active',
+        })
+        .where(eq(voiceSessions.id, sessionId))
+        .catch((e) => console.warn('⚠️ Failed to update session to active:', e));
     }
   }
 
@@ -142,22 +133,18 @@ class VoiceSessionManager {
     session.duration = duration;
     session.status = 'ended';
 
-    // Track usage (prefer uuid if present)
-    await this.trackVoiceUsage(session.userUuid || session.userId, duration);
+    // Track usage (uuid)
+    await this.trackVoiceUsage(session.userUuid, duration);
 
     // Update persisted session to ended
     try {
-      if (session.userUuid) {
-        await db.update(voiceSessions)
-          .set({
-            endTime: endTime as unknown as Date,
-            durationSeconds: duration,
-            status: 'ended',
-          })
-          .where(eq(voiceSessions.id, session.id));
-      } else {
-        console.warn('⚠️ Skipping DB update on end: missing userUuid');
-      }
+      await db.update(voiceSessions)
+        .set({
+          endTime: endTime as unknown as Date,
+          durationSeconds: duration,
+          status: 'ended',
+        })
+        .where(eq(voiceSessions.id, session.id));
     } catch (e) {
       console.warn('⚠️ Failed to update session end, continuing:', e);
     }
@@ -177,15 +164,15 @@ class VoiceSessionManager {
   }
 
   /**
-   * Get all active sessions for a user (by token-derived id)
+   * Get all active sessions for a user (by uuid)
    */
-  public getUserSessions(userId: string): VoiceSession[] {
+  public getUserSessions(userUuid: string): VoiceSession[] {
     return Array.from(this.activeSessions.values())
-      .filter(session => session.userId === userId);
+      .filter(session => session.userUuid === userUuid);
   }
 
   /**
-   * Track voice usage for a user (keyed by uuid when available)
+   * Track voice usage for a user (keyed by uuid)
    */
   private async trackVoiceUsage(userKey: string, duration: number): Promise<void> {
     // Use Europe/Warsaw local date for daily aggregation
@@ -196,7 +183,7 @@ class VoiceSessionManager {
     let usage = this.userUsage.get(key);
     if (!usage) {
       usage = {
-        userId: userKey,
+        userUuid: userKey,
         date: today,
         totalDuration: 0,
         sessionCount: 0,
@@ -215,7 +202,7 @@ class VoiceSessionManager {
   }
 
   /**
-   * Get user's daily voice usage (keyed by uuid when available)
+   * Get user's daily voice usage (keyed by uuid)
    */
   public async getUserDailyUsage(userKey: string): Promise<UserVoiceUsage> {
     const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Warsaw', year: 'numeric', month: '2-digit', day: '2-digit' })
@@ -230,7 +217,7 @@ class VoiceSessionManager {
         this.userUsage.set(key, usage);
       } else {
         usage = {
-          userId: userKey,
+          userUuid: userKey,
           date: today,
           totalDuration: 0,
           sessionCount: 0,
@@ -260,7 +247,7 @@ class VoiceSessionManager {
       await db
         .insert(userVoiceUsageDaily)
         .values({
-          userUuid: usage.userId,
+          userUuid: usage.userUuid,
           usageDate: usageDate as unknown as any,
           totalDuration: usage.totalDuration,
           sessionCount: usage.sessionCount,
@@ -297,7 +284,7 @@ class VoiceSessionManager {
       if (rows.length === 0) return null;
       const row = rows[0];
       return {
-        userId: row.userUuid,
+        userUuid: row.userUuid,
         date: date,
         totalDuration: row.totalDuration,
         sessionCount: row.sessionCount,
@@ -345,7 +332,7 @@ class VoiceSessionManager {
     
     return {
       activeSessions: sessions.length,
-      totalUsers: new Set(sessions.map(s => s.userId)).size,
+      totalUsers: new Set(sessions.map(s => s.userUuid)).size,
       avgSessionDuration: sessions.length > 0 ? Math.round(totalDuration / sessions.length) : 0
     };
   }
@@ -353,11 +340,10 @@ class VoiceSessionManager {
   /**
    * Get all active sessions (admin use)
    */
-  public getAllActiveSessions(): Array<Pick<VoiceSession, 'id' | 'userId' | 'userUuid' | 'userName' | 'conversationId' | 'agentId' | 'elevenLabsConversationId' | 'startTime' | 'status' | 'clientType' | 'duration'>> {
+  public getAllActiveSessions(): Array<Pick<VoiceSession, 'id' | 'userUuid' | 'userName' | 'conversationId' | 'agentId' | 'elevenLabsConversationId' | 'startTime' | 'status' | 'clientType' | 'duration'>> {
     const sessions = Array.from(this.activeSessions.values());
     return sessions.map((s) => ({
       id: s.id,
-      userId: s.userId,
       userUuid: s.userUuid,
       userName: s.userName,
       conversationId: s.conversationId,

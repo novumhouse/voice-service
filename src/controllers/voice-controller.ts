@@ -16,7 +16,6 @@ declare global {
   namespace Express {
     interface Request {
       user?: {
-        id: string;
         name: string;
         token: string;
         uuid?: string;
@@ -83,8 +82,7 @@ class VoiceController {
 
       // Create voice session (pass uuid for DB FK)
       const session = await sessionManager.createSession({
-        userId: user.id,
-        userUuid: user.uuid,
+        userUuid: user.uuid!,
         userName: user.name,
         userToken: user.token,
         conversationId,
@@ -96,11 +94,10 @@ class VoiceController {
       // Start ElevenLabs conversation with OVERRIDES (BEST APPROACH)
       const conversationData = await elevenLabsService.startConversationWithOverrides({
         agentId,
-        userId: user.id,
         userName: user.name,
         userToken: user.token,    // Used for overrides - embedded in WebRTC token
         conversationId,
-        userUuid: user.uuid
+        userUuid: user.uuid!
       });
 
       // Update session with ElevenLabs conversation ID
@@ -117,7 +114,6 @@ class VoiceController {
         },
         session: {
           id: session.id,
-          userId: session.userId,
           agentId: session.agentId,
           status: session.status,
           startTime: session.startTime
@@ -146,7 +142,7 @@ class VoiceController {
         return;
       }
 
-      if (session.userId !== user.id) {
+      if (session.userUuid !== user.uuid) {
         res.status(403).json(errorResponse(403, 'Access denied to this session'));
         return;
       }
@@ -193,7 +189,7 @@ class VoiceController {
         return;
       }
 
-      if (session.userId !== user.id) {
+      if (session.userUuid !== user.uuid) {
         res.status(403).json(errorResponse(403, 'Access denied to this session'));
         return;
       }
@@ -222,7 +218,7 @@ class VoiceController {
   public async getUserVoiceUsage(req: Request, res: Response): Promise<void> {
     try {
       const user = req.user!;
-      const userKey = user.uuid || user.id;
+      const userKey = user.uuid!;
       const usage = await sessionManager.getUserDailyUsage(userKey);
 
       res.json(okResponse({
@@ -249,7 +245,7 @@ class VoiceController {
   public async getUserActiveSessions(req: Request, res: Response): Promise<void> {
     try {
       const user = req.user!;
-      const sessions = sessionManager.getUserSessions(user.id);
+      const sessions = sessionManager.getUserSessions(user.uuid!);
 
       res.json(okResponse({
         sessions: sessions.map(session => ({
@@ -345,7 +341,6 @@ class VoiceController {
       // Return safe user context (excluding sensitive tokens)
       const safeContext = {
         user_name: userContext.user_name,
-        user_id: userContext.user_id,
         user_uuid: userContext.user_uuid,
         conversation_id: userContext.conversation_id
         // bearer_token and user_token excluded for security
