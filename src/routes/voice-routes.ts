@@ -77,8 +77,8 @@ router.post('/tools/authenticated-call/:conversationId', voiceController.makeAut
  */
 
 // GET /api/voice/admin/sessions - List all active sessions
-router.get('/admin/sessions', requireAdmin, (req, res) => {
-  const sessions = sessionManager.getAllActiveSessions();
+router.get('/admin/sessions', requireAdmin, async (req, res) => {
+  const sessions = await sessionManager.getAllActiveSessions();
   res.json({ success: true, data: sessions });
 });
 
@@ -86,6 +86,12 @@ router.get('/admin/sessions', requireAdmin, (req, res) => {
 router.post('/admin/sessions/end', requireAdmin, async (req, res) => {
   const result = await sessionManager.endAllActiveSessions();
   res.json({ success: true, data: result });
+});
+
+// GET /api/voice/admin/sessions/debug - Debug Redis state
+router.get('/admin/sessions/debug', requireAdmin, async (req, res) => {
+  const debug = await sessionManager.getDebugState();
+  res.json({ success: true, data: debug });
 });
 
 /**

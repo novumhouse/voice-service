@@ -37,6 +37,7 @@
   "author": "ReKeep Team",
   "license": "MIT",
   "dependencies": {
+    "@upstash/redis": "^1.35.4",
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",
     "drizzle-orm": "^0.44.5",

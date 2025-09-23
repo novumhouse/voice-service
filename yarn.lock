@@ -1013,6 +1013,13 @@
   resolved "https://registry.npmjs.org/@ungap/structured-clone/-/structured-clone-1.3.0.tgz"
   integrity sha512-WmoN8qaIAo7WTYWbAZuG8PYEhn5fkz7dZrqTBZ7dtt//lL2Gwms1IcnQ5yHqjDfX8Ft5j4YzDM23f87zBfDe9g==
 
+"@upstash/redis@^1.35.4":
+  version "1.35.4"
+  resolved "https://registry.yarnpkg.com/@upstash/redis/-/redis-1.35.4.tgz#28a8a5492b32a9a546c709502ffbd57de06c87ef"
+  integrity sha512-WE1ZnhFyBiIjTDW13GbO6JjkiMVVjw5VsvS8ENmvvJsze/caMQ5paxVD44+U68IUVmkXcbsLSoE+VIYsHtbQEw==
+  dependencies:
+    uncrypto "^0.1.3"
+
 accepts@~1.3.8:
   version "1.3.8"
   resolved "https://registry.npmjs.org/accepts/-/accepts-1.3.8.tgz"
@@ -3608,6 +3615,11 @@ uglify-js@^3.1.4:
   version "3.19.3"
   resolved "https://registry.npmjs.org/uglify-js/-/uglify-js-3.19.3.tgz"
   integrity sha512-v3Xu+yuwBXisp6QYTcH4UbH+xYJXqnq2m/LtQVWKWzYc1iehYnLixoQDN9FH6/j9/oybfd6W9Ghwkl8+UMKTKQ==
+
+uncrypto@^0.1.3:
+  version "0.1.3"
+  resolved "https://registry.yarnpkg.com/uncrypto/-/uncrypto-0.1.3.tgz#e1288d609226f2d02d8d69ee861fa20d8348ef2b"
+  integrity sha512-Ql87qFHB3s/De2ClA9e0gsnS6zXG27SkTiSJwjCc9MebbfapQfuPzumMIUMi38ezPZVNFcHI9sUIepeQfw8J8Q==
 
 undefsafe@^2.0.5:
   version "2.0.5"

@@ -101,7 +101,7 @@ class VoiceController {
       });
 
       // Update session with ElevenLabs conversation ID
-      sessionManager.updateSessionWithElevenLabsId(session.id, conversationData.token);
+      await sessionManager.updateSessionWithElevenLabsId(session.id, conversationData.token);
 
       // Return response with overrides for client to apply when starting session
       res.status(201).json(okResponse({
@@ -136,7 +136,7 @@ class VoiceController {
       const user = req.user!;
 
       // Get session and validate ownership
-      const session = sessionManager.getSession(sessionId);
+      const session = await sessionManager.getSession(sessionId);
       if (!session) {
         res.status(404).json(errorResponse(404, 'Session not found'));
         return;
@@ -183,7 +183,7 @@ class VoiceController {
       const { sessionId } = req.params;
       const user = req.user!;
 
-      const session = sessionManager.getSession(sessionId);
+      const session = await sessionManager.getSession(sessionId);
       if (!session) {
         res.status(404).json(errorResponse(404, 'Session not found'));
         return;
@@ -245,7 +245,7 @@ class VoiceController {
   public async getUserActiveSessions(req: Request, res: Response): Promise<void> {
     try {
       const user = req.user!;
-      const sessions = sessionManager.getUserSessions(user.uuid!);
+      const sessions = await sessionManager.getUserSessions(user.uuid!);
 
       res.json(okResponse({
         sessions: sessions.map(session => ({
@@ -272,7 +272,7 @@ class VoiceController {
   public async healthCheck(req: Request, res: Response): Promise<void> {
     try {
       const elevenLabsHealth = await elevenLabsService.healthCheck();
-      const serviceStats = sessionManager.getServiceStats();
+      const serviceStats = await sessionManager.getServiceStats();
 
       const overallHealth = elevenLabsHealth.status === 'healthy' ? 'healthy' : 'unhealthy';
 
