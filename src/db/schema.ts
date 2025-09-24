@@ -9,7 +9,6 @@ export const voiceSessions = pgTable('voice_sessions', {
   userName: text('user_name').notNull(),
   conversationId: text('conversation_id').notNull(),
   agentId: text('agent_id').notNull(),
-  elevenLabsConversationId: text('elevenlabs_conversation_id'),
   status: varchar('status', { length: 16 }).notNull(), // starting|active|ending|ended|error
   clientType: varchar('client_type', { length: 16 }).notNull(), // web|flutter|mobile
   startTime: timestamp('start_time', { withTimezone: true }).notNull(),

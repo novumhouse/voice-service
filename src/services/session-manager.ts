@@ -10,7 +10,6 @@ interface VoiceSession {
   userToken: string;
   conversationId: string;
   agentId: string;
-  elevenLabsConversationId?: string;
   startTime: Date;
   endTime?: Date;
   duration: number;
@@ -75,7 +74,6 @@ class VoiceSessionManager {
         userToken: '',
         conversationId: r.conversationId,
         agentId: r.agentId,
-        elevenLabsConversationId: r.elevenLabsConversationId ?? undefined,
         startTime: new Date(r.startTime),
         endTime: r.endTime ? new Date(r.endTime) : undefined,
         duration: r.durationSeconds ?? 0,
@@ -93,6 +91,7 @@ class VoiceSessionManager {
    * Create a new voice session
    */
   public async createSession(params: {
+    id?: string; // When provided, will be used as session id (e.g., ElevenLabs conv_*)
     userUuid: string;
     userName: string;
     userToken: string;
@@ -110,7 +109,7 @@ class VoiceSessionManager {
     }
 
     const session: VoiceSession = {
-      id: this.generateSessionId(),
+      id: params.id || this.generateSessionId(),
       userUuid: params.userUuid,
       userName: params.userName,
       userToken: params.userToken,
@@ -139,7 +138,6 @@ class VoiceSessionManager {
         userName: session.userName,
         conversationId: session.conversationId,
         agentId: session.agentId,
-        elevenLabsConversationId: null,
         status: 'starting',
         clientType: session.clientType,
         startTime: session.startTime as unknown as Date,
@@ -153,25 +151,19 @@ class VoiceSessionManager {
     return session;
   }
 
-  /**
-   * Update session with ElevenLabs conversation ID
-   */
-  public async updateSessionWithElevenLabsId(sessionId: string, elevenLabsConversationId: string): Promise<void> {
+  // Session is considered active once created with a valid conv_* id
+  public async markSessionActive(sessionId: string): Promise<void> {
     const cached = await cacheGet<ReturnType<VoiceSessionManager['serializeSession']>>(this.getSessionKey(sessionId));
     if (cached) {
       const session = this.deserializeSession(cached);
-      session.elevenLabsConversationId = elevenLabsConversationId;
       session.status = 'active';
       await cacheSet(this.getSessionKey(sessionId), this.serializeSession(session), { ttlSeconds: this.SESSION_TTL_SECONDS });
-      // Ensure set memberships and refresh TTLs
       await cacheSAdd(this.getActiveSessionsSetKey(), sessionId, this.SESSION_TTL_SECONDS);
       await cacheSAdd(this.getUserSessionsKey(session.userUuid), sessionId, this.SESSION_TTL_SECONDS);
       await cacheExpire(this.getUserSessionsKey(session.userUuid), this.SESSION_TTL_SECONDS);
     }
-    // Always update DB, even if Redis miss
     await db.update(voiceSessions)
       .set({
-        elevenLabsConversationId,
         status: 'active',
       })
       .where(eq(voiceSessions.id, sessionId));
@@ -261,9 +253,7 @@ class VoiceSessionManager {
       if (callDurationSecs != null) {
         updatePayload.durationSeconds = callDurationSecs;
       }
-      if (conversationId) {
-        updatePayload.elevenLabsConversationId = conversationId;
-      }
+      // No separate column for ElevenLabs conversation id anymore
 
       await db.update(voiceSessions)
         .set(updatePayload)
@@ -308,7 +298,6 @@ class VoiceSessionManager {
           userToken: '',
           conversationId: r.conversationId,
           agentId: r.agentId,
-          elevenLabsConversationId: r.elevenLabsConversationId ?? undefined,
           startTime: new Date(r.startTime),
           endTime: r.endTime ? new Date(r.endTime) : undefined,
           duration: r.durationSeconds ?? 0,
@@ -508,9 +497,9 @@ class VoiceSessionManager {
   /**
    * Get all active sessions (admin use)
    */
-  public async getAllActiveSessions(): Promise<Array<Pick<VoiceSession, 'id' | 'userUuid' | 'userName' | 'conversationId' | 'agentId' | 'elevenLabsConversationId' | 'startTime' | 'status' | 'clientType' | 'duration'>>> {
+  public async getAllActiveSessions(): Promise<Array<Pick<VoiceSession, 'id' | 'userUuid' | 'userName' | 'conversationId' | 'agentId' | 'startTime' | 'status' | 'clientType' | 'duration'>>> {
     const ids = await cacheSMembers(this.getActiveSessionsSetKey());
-    const result: Array<Pick<VoiceSession, 'id' | 'userUuid' | 'userName' | 'conversationId' | 'agentId' | 'elevenLabsConversationId' | 'startTime' | 'status' | 'clientType' | 'duration'>> = [];
+    const result: Array<Pick<VoiceSession, 'id' | 'userUuid' | 'userName' | 'conversationId' | 'agentId' | 'startTime' | 'status' | 'clientType' | 'duration'>> = [];
     for (const id of ids) {
       const cached = await cacheGet<ReturnType<VoiceSessionManager['serializeSession']>>(this.getSessionKey(id));
       if (!cached) continue;
@@ -521,7 +510,6 @@ class VoiceSessionManager {
         userName: s.userName,
         conversationId: s.conversationId,
         agentId: s.agentId,
-        elevenLabsConversationId: s.elevenLabsConversationId,
         startTime: s.startTime,
         status: s.status,
         clientType: s.clientType,
@@ -542,7 +530,6 @@ class VoiceSessionManager {
         userName: r.userName,
         conversationId: r.conversationId,
         agentId: r.agentId,
-        elevenLabsConversationId: r.elevenLabsConversationId ?? undefined,
         startTime: new Date(r.startTime),
         status: r.status,
         clientType: r.clientType,
@@ -586,7 +573,6 @@ class VoiceSessionManager {
     userToken: string;
     conversationId: string;
     agentId: string;
-    elevenLabsConversationId?: string;
     startTime: string;
     endTime?: string;
     duration: number;
@@ -601,7 +587,6 @@ class VoiceSessionManager {
       userToken: session.userToken,
       conversationId: session.conversationId,
       agentId: session.agentId,
-      elevenLabsConversationId: session.elevenLabsConversationId,
       startTime: session.startTime.toISOString(),
       endTime: session.endTime ? session.endTime.toISOString() : undefined,
       duration: session.duration,
@@ -619,7 +604,6 @@ class VoiceSessionManager {
       userToken: data.userToken,
       conversationId: data.conversationId,
       agentId: data.agentId,
-      elevenLabsConversationId: data.elevenLabsConversationId,
       startTime: new Date(data.startTime),
       endTime: data.endTime ? new Date(data.endTime) : undefined,
       duration: data.duration,

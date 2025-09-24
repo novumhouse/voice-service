@@ -81,8 +81,22 @@ class VoiceController {
       // Validate agent
       elevenLabsService.validateAgent(agentId);
 
-      // Create voice session (pass uuid for DB FK)
+      // Start ElevenLabs conversation first to obtain conv_* id
+      const conversationData = await elevenLabsService.startConversationWithOverrides({
+        agentId,
+        userName: user.name,
+        userToken: user.token,    // Used for overrides - embedded in WebRTC token
+        conversationId,
+        userUuid: user.uuid!
+      });
+
+      // Extract conv_* ID from the JWT token (preferred) or use token
+      const extractedConvId = elevenLabsService.extractConversationIdFromToken(conversationData.token);
+      const convId = extractedConvId || conversationData.token; // conv_* expected
+
+      // Create voice session with ElevenLabs conv_* as the session id
       const session = await sessionManager.createSession({
+        id: convId,
         userUuid: user.uuid!,
         userName: user.name,
         userToken: user.token,
@@ -92,28 +106,17 @@ class VoiceController {
         metadata
       });
 
-      // Start ElevenLabs conversation with OVERRIDES (BEST APPROACH)
-      const conversationData = await elevenLabsService.startConversationWithOverrides({
-        agentId,
-        userName: user.name,
-        userToken: user.token,    // Used for overrides - embedded in WebRTC token
-        conversationId,
-        userUuid: user.uuid!
-      });
-
-      // Update session with ElevenLabs conversation ID (extract from JWT token if possible)
-      const extractedConvId = elevenLabsService.extractConversationIdFromToken(conversationData.token);
-      await sessionManager.updateSessionWithElevenLabsId(session.id, extractedConvId || conversationData.token);
+      // Mark active
+      await sessionManager.markSessionActive(session.id);
 
       // Return response with overrides for client to apply when starting session
       res.status(201).json(okResponse({
-        sessionId: session.id,
+        sessionId: session.id, // conv_*
         conversationData: {
           token: conversationData.token,
           agentId: conversationData.agentId,
           connectionType: conversationData.connectionType,
-          overrides: conversationData.overrides,
-          elevenLabsConversationId: extractedConvId || null
+          overrides: conversationData.overrides
         },
         session: {
           id: session.id,
@@ -175,13 +178,9 @@ class VoiceController {
       (async () => {
         try {
           logger.info('endConversation_async_begin', { sessionId: endedSession.id });
-          const raw = endedSession.elevenLabsConversationId || endedSession.conversationId;
-          let convId = raw;
-          if (raw && !/^conv_/.test(raw)) {
-            const extracted = elevenLabsService.extractConversationIdFromToken(raw);
-            if (extracted) convId = extracted;
-          }
-          logger.info('endConversation_convId_resolved', { sessionId: endedSession.id, raw, convId });
+          // With new model, session.id is the ElevenLabs conversation id (conv_*)
+          const convId = /^conv_/.test(endedSession.id) ? endedSession.id : undefined;
+          logger.info('endConversation_convId_resolved', { sessionId: endedSession.id, convId });
           let transcript: unknown = undefined;
           let elevenLabsResponse: unknown = undefined;
           if (convId) {
@@ -214,7 +213,7 @@ class VoiceController {
             userUuid: endedSession.userUuid,
             agentId: endedSession.agentId,
             conversationId: endedSession.conversationId,
-            elevenLabsConversationId: endedSession.elevenLabsConversationId,
+            elevenLabsConversationId: convId,
             durationSeconds: endedSession.duration,
             startTime: endedSession.startTime,
             endTime: endedSession.endTime || new Date(),
