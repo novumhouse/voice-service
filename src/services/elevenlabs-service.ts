@@ -116,6 +116,55 @@ class ElevenLabsService {
   }
 
   /**
+   * Extract ElevenLabs conversation id from a JWT token returned by token endpoint
+   * Looks for pattern "conv_<alphanumeric>" in the JWT payload (base64url)
+   */
+  public extractConversationIdFromToken(token: string): string | null {
+    try {
+      const parts = token.split('.');
+      if (parts.length < 2) return null;
+      const payloadB64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+      const padded = payloadB64 + '='.repeat((4 - (payloadB64.length % 4)) % 4);
+      const json = Buffer.from(padded, 'base64').toString('utf8');
+      const obj = JSON.parse(json);
+      const source = typeof obj.sub === 'string' ? obj.sub : (typeof obj.name === 'string' ? obj.name : JSON.stringify(obj));
+      const match = source.match(/conv_[A-Za-z0-9]+/);
+      return match ? match[0] : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Fetch conversation details (includes transcript array) by conversation_id
+   * https://elevenlabs.io/docs/api-reference/conversations/get
+   */
+  public async getConversationDetails(conversationId: string): Promise<any | null> {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const res = await fetch(`${this.baseUrl}/convai/conversations/${encodeURIComponent(conversationId)}`, {
+        method: 'GET',
+        headers: {
+          'xi-api-key': this.apiKey,
+          'Accept': 'application/json',
+        },
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        console.warn('⚠️ ElevenLabs getConversationDetails failed', { status: res.status, text });
+        return null;
+      }
+      return await res.json();
+    } catch (e) {
+      console.warn('⚠️ ElevenLabs getConversationDetails error', { error: e instanceof Error ? e.message : 'unknown' });
+      return null;
+    }
+  }
+
+  /**
    * Get conversation token (standard approach)
    * Overrides will be applied when the client starts the session
    */
