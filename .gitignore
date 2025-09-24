@@ -11,6 +11,9 @@ yarn-error.log*
 .env.test.local
 .env.production.local
 
+# Database certificates / secrets
+src/db/ca-certificate.crt
+
 # Build outputs
 dist/
 build/
