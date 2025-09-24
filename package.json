@@ -39,6 +39,7 @@
   "dependencies": {
     "@langfuse/otel": "^4.2.0",
     "@langfuse/tracing": "^4.2.0",
+    "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/sdk-node": "^0.205.0",
     "@upstash/redis": "^1.35.4",
     "cors": "^2.8.5",
