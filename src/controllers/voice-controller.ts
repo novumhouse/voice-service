@@ -171,20 +171,44 @@ class VoiceController {
         }
       }));
 
-      // Fire-and-forget: fetch transcript and send Langfuse trace asynchronously
+      // Fire-and-forget: finalize on ElevenLabs, fetch transcript and send Langfuse trace asynchronously
       (async () => {
         try {
+          logger.info('endConversation_async_begin', { sessionId: endedSession.id });
           const raw = endedSession.elevenLabsConversationId || endedSession.conversationId;
           let convId = raw;
           if (raw && !/^conv_/.test(raw)) {
             const extracted = elevenLabsService.extractConversationIdFromToken(raw);
             if (extracted) convId = extracted;
           }
+          logger.info('endConversation_convId_resolved', { sessionId: endedSession.id, raw, convId });
           let transcript: unknown = undefined;
+          let elevenLabsResponse: unknown = undefined;
           if (convId) {
-            const details = await elevenLabsService.getConversationDetails(convId);
-            transcript = details?.transcript;
+            // Fetch and wait until conversation is done to avoid empty transcript
+            logger.info('endConversation_wait_for_done', { sessionId: endedSession.id, convId });
+            elevenLabsResponse = await elevenLabsService.waitForConversationDone(convId, { maxAttempts: 20, intervalMs: 3000 });
+
+            if (!elevenLabsResponse) {
+              // Fallback: attempt GET if all else failed
+              logger.warn('endConversation_call_elevenlabs_fallback_get', { sessionId: endedSession.id, convId });
+              const details = await elevenLabsService.getConversationDetails(convId);
+              elevenLabsResponse = details;
+            }
+            // Extract transcript if present
+            // Many responses contain { transcript: [...] }
+            if (elevenLabsResponse && typeof elevenLabsResponse === 'object' && 'transcript' in (elevenLabsResponse as any)) {
+              transcript = (elevenLabsResponse as any).transcript;
+            }
+            const length = Array.isArray(transcript) ? (transcript as unknown[]).length : undefined;
+            logger.info('endConversation_transcript_extracted', { sessionId: endedSession.id, length });
+
+            // Persist final details in DB (duration/cost/status etc.)
+            await sessionManager.persistFinalConversationData(endedSession.id, elevenLabsResponse);
+          } else {
+            logger.warn('endConversation_no_convId', { sessionId: endedSession.id });
           }
+          logger.info('endConversation_create_langfuse_trace', { sessionId: endedSession.id });
           await createEndConversationTrace({
             sessionId: endedSession.id,
             userUuid: endedSession.userUuid,
@@ -195,8 +219,25 @@ class VoiceController {
             startTime: endedSession.startTime,
             endTime: endedSession.endTime || new Date(),
             transcript,
-            metadata: endedSession.metadata as Record<string, unknown> | undefined,
+            metadata: {
+              ...(endedSession.metadata as Record<string, unknown> | undefined),
+              clientType: endedSession.clientType,
+              // Flatten common columns for analytics
+              elevenlabs_conversation_id: convId,
+              session_id: endedSession.id,
+              agent_id: endedSession.agentId,
+              connection_type: 'webrtc',
+              duration_seconds: endedSession.duration,
+              main_language: agentManager.getAgent(endedSession.agentId)?.language,
+              // Attach raw ElevenLabs fields when present
+              elevenLabs: elevenLabsResponse,
+              elevenlabs_status: (elevenLabsResponse as any)?.status,
+              elevenlabs_cost: (elevenLabsResponse as any)?.metadata?.cost ?? (elevenLabsResponse as any)?.cost ?? null,
+              elevenlabs_llm_charge: (elevenLabsResponse as any)?.metadata?.llm_charge ?? null,
+              elevenlabs_agent_id: (elevenLabsResponse as any)?.agent_id,
+            },
           });
+          logger.info('endConversation_async_done', { sessionId: endedSession.id });
         } catch (bgErr) {
           logger.warn('endConversation_trace_async_failed', { error: bgErr instanceof Error ? bgErr.message : 'unknown' });
         }

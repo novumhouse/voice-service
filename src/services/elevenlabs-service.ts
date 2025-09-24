@@ -165,6 +165,60 @@ class ElevenLabsService {
   }
 
   /**
+   * Fetch conversation transcript/details from ElevenLabs via GET.
+   * Officially recommended path for retrieving transcript data.
+   */
+  public async endElevenLabsConversation(conversationId: string): Promise<any | null> {
+    const url = `${this.baseUrl}/convai/conversations/${encodeURIComponent(conversationId)}`;
+    try {
+      console.log(`📝 Fetching ElevenLabs conversation details (GET): ${conversationId}`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const res = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'xi-api-key': this.apiKey,
+          'Accept': 'application/json',
+        },
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        console.warn('⚠️ ElevenLabs GET conversation failed', { status: res.status, text });
+        return null;
+      }
+      const json = await res.json();
+      console.log(`✅ ElevenLabs conversation details received: ${conversationId}`);
+      return json;
+    } catch (e) {
+      console.warn('⚠️ ElevenLabs endElevenLabsConversation error', { error: e instanceof Error ? e.message : 'unknown' });
+      return null;
+    }
+  }
+
+  /**
+   * Poll until conversation status is 'done' (or attempts exhausted).
+   * Returns the latest details payload (ideally with transcript).
+   */
+  public async waitForConversationDone(conversationId: string, options?: { maxAttempts?: number; intervalMs?: number }): Promise<any | null> {
+    const maxAttempts = options?.maxAttempts ?? 20; // up to ~60s with 3s interval
+    const intervalMs = options?.intervalMs ?? 3000;
+    let attempts = 0;
+    let last: any | null = null;
+    while (attempts < maxAttempts) {
+      attempts++;
+      last = await this.getConversationDetails(conversationId);
+      const status = last?.status;
+      const transcriptLen = Array.isArray(last?.transcript) ? last.transcript.length : undefined;
+      console.log(`🔁 Poll ${attempts}/${maxAttempts} for ${conversationId}: status=${status} transcriptLen=${transcriptLen ?? 'n/a'}`);
+      if (status === 'done') return last;
+      await new Promise((r) => setTimeout(r, intervalMs));
+    }
+    return last;
+  }
+
+  /**
    * Get conversation token (standard approach)
    * Overrides will be applied when the client starts the session
    */

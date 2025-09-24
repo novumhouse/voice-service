@@ -218,6 +218,64 @@ class VoiceSessionManager {
   }
 
   /**
+   * Persist final ElevenLabs conversation details into the session metadata.
+   * Optionally sync duration from ElevenLabs if provided.
+   */
+  public async persistFinalConversationData(sessionId: string, details: any): Promise<void> {
+    try {
+      // Load existing metadata
+      const rows = await db
+        .select()
+        .from(voiceSessions)
+        .where(eq(voiceSessions.id, sessionId))
+        .limit(1);
+      if (rows.length === 0) return;
+      const current: any = rows[0] as any;
+      const existingMeta: Record<string, any> = current.metadata ?? {};
+
+      // Extract commonly used fields
+      const status = details?.status ?? null;
+      const conversationId = details?.conversation_id ?? null;
+      const agentId = details?.agent_id ?? null;
+      const mainLanguage = details?.metadata?.main_language ?? null;
+      const cost = (details?.metadata?.cost ?? details?.cost) ?? null;
+      const llmCharge = details?.metadata?.charging?.llm_charge ?? null;
+      const callDurationSecs = typeof details?.metadata?.call_duration_secs === 'number' ? details.metadata.call_duration_secs : null;
+
+      const mergedMeta = {
+        ...existingMeta,
+        elevenLabs: details,
+        elevenlabs_status: status,
+        elevenlabs_conversation_id: conversationId ?? existingMeta.elevenlabs_conversation_id,
+        elevenlabs_agent_id: agentId ?? existingMeta.elevenlabs_agent_id,
+        main_language: mainLanguage ?? existingMeta.main_language,
+        elevenlabs_cost: cost ?? existingMeta.elevenlabs_cost ?? null,
+        elevenlabs_llm_charge: llmCharge ?? existingMeta.elevenlabs_llm_charge ?? null,
+        call_duration_secs: callDurationSecs ?? existingMeta.call_duration_secs ?? null,
+      };
+
+      const updatePayload: any = {
+        metadata: mergedMeta,
+        updatedAt: new Date() as unknown as Date,
+      };
+      if (callDurationSecs != null) {
+        updatePayload.durationSeconds = callDurationSecs;
+      }
+      if (conversationId) {
+        updatePayload.elevenLabsConversationId = conversationId;
+      }
+
+      await db.update(voiceSessions)
+        .set(updatePayload)
+        .where(eq(voiceSessions.id, sessionId));
+
+      console.log(`🗂️ Persisted final conversation details for session ${sessionId}`);
+    } catch (e) {
+      console.warn('⚠️ Failed to persist final conversation details:', e);
+    }
+  }
+
+  /**
    * Get session by ID
    */
   public async getSession(sessionId: string): Promise<VoiceSession | null> {
