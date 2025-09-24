@@ -112,6 +112,8 @@ class VoiceController {
       // Return response with overrides for client to apply when starting session
       res.status(201).json(okResponse({
         sessionId: session.id, // conv_*
+        user_name: user.name,
+        user_uuid: user.uuid,
         conversationData: {
           token: conversationData.token,
           agentId: conversationData.agentId,

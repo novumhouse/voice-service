@@ -81,6 +81,11 @@ export async function createEndConversationTrace(params: {
       hasTranscript: params.transcript != null,
     });
     const lfSessionId = params.elevenLabsConversationId || params.conversationId || params.sessionId;
+    const baseTags = ['conversation', 'voice'];
+    const clientTypeTag = typeof (params.metadata as any)?.clientType === 'string' && (params.metadata as any).clientType.trim()
+      ? (params.metadata as any).clientType.trim()
+      : undefined;
+
     const trace = client.trace({
       name: 'voice-conversation',
       userId: params.userUuid,
@@ -100,7 +105,7 @@ export async function createEndConversationTrace(params: {
         duration_seconds: params.durationSeconds,
         ...params.metadata,
       },
-      tags: ['conversation', 'voice'],
+      tags: clientTypeTag ? [...baseTags, clientTypeTag] : baseTags,
     });
 
     if (params.transcript) {
