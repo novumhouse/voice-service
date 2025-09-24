@@ -57,6 +57,16 @@ class AgentConfigManager {
         language: 'Polish',
         specialization: 'technical_support',
         isActive: true
+      },
+
+      {
+        id: 'agent_5',
+        agentId: process.env.AGENT_5_ID || 'agent_0801k4z2a4cdfz2tms20kdyvav1a',
+        name: 'Slawkowy Agent',
+        description: 'Testowy to do rozmowy',
+        language: 'Polish',
+        specialization: 'technical_support',
+        isActive: true
       }
     ];
 
