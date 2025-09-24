@@ -95,6 +95,13 @@ router.get('/admin/sessions/debug', requireAdmin, async (req, res) => {
 });
 
 /**
+ * ElevenLabs Webhook (static secret in path)
+ * Configure ElevenLabs to call: POST /api/voice/webhooks/elevenlabs/:token
+ * Set ELEVENLABS_WEBHOOK_TOKEN in env and use that as :token
+ */
+router.post('/webhooks/elevenlabs/:token', express.json({ limit: '2mb' }), (voiceController as any).elevenLabsWebhook.bind(voiceController));
+
+/**
  * API Documentation Route
  */
 router.get('/', (req, res) => {

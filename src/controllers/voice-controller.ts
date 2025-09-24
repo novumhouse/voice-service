@@ -10,6 +10,7 @@ import { agentManager } from '../config/agents.js';
 import { errorResponse, okResponse } from '../utils/http.js';
 import { logger } from '../utils/logger.js';
 import { fetchUserMe } from '../middleware/auth.js';
+import { createEndConversationTrace } from '../utils/langfuse.js';
 
 // Extend Request interface to include user context
 declare global {
@@ -100,8 +101,9 @@ class VoiceController {
         userUuid: user.uuid!
       });
 
-      // Update session with ElevenLabs conversation ID
-      await sessionManager.updateSessionWithElevenLabsId(session.id, conversationData.token);
+      // Update session with ElevenLabs conversation ID (extract from JWT token if possible)
+      const extractedConvId = elevenLabsService.extractConversationIdFromToken(conversationData.token);
+      await sessionManager.updateSessionWithElevenLabsId(session.id, extractedConvId || conversationData.token);
 
       // Return response with overrides for client to apply when starting session
       res.status(201).json(okResponse({
@@ -110,7 +112,8 @@ class VoiceController {
           token: conversationData.token,
           agentId: conversationData.agentId,
           connectionType: conversationData.connectionType,
-          overrides: conversationData.overrides
+          overrides: conversationData.overrides,
+          elevenLabsConversationId: extractedConvId || null
         },
         session: {
           id: session.id,
@@ -167,6 +170,37 @@ class VoiceController {
           status: endedSession.status
         }
       }));
+
+      // Fire-and-forget: fetch transcript and send Langfuse trace asynchronously
+      (async () => {
+        try {
+          const raw = endedSession.elevenLabsConversationId || endedSession.conversationId;
+          let convId = raw;
+          if (raw && !/^conv_/.test(raw)) {
+            const extracted = elevenLabsService.extractConversationIdFromToken(raw);
+            if (extracted) convId = extracted;
+          }
+          let transcript: unknown = undefined;
+          if (convId) {
+            const details = await elevenLabsService.getConversationDetails(convId);
+            transcript = details?.transcript;
+          }
+          await createEndConversationTrace({
+            sessionId: endedSession.id,
+            userUuid: endedSession.userUuid,
+            agentId: endedSession.agentId,
+            conversationId: endedSession.conversationId,
+            elevenLabsConversationId: endedSession.elevenLabsConversationId,
+            durationSeconds: endedSession.duration,
+            startTime: endedSession.startTime,
+            endTime: endedSession.endTime || new Date(),
+            transcript,
+            metadata: endedSession.metadata as Record<string, unknown> | undefined,
+          });
+        } catch (bgErr) {
+          logger.warn('endConversation_trace_async_failed', { error: bgErr instanceof Error ? bgErr.message : 'unknown' });
+        }
+      })();
 
     } catch (error) {
       logger.error('endConversation_error', { error: error instanceof Error ? error.message : 'unknown' });
@@ -423,6 +457,31 @@ class VoiceController {
     } catch (error) {
       logger.error('makeAuthenticatedCall_error', { error: error instanceof Error ? error.message : 'unknown' });
       res.status(500).json(errorResponse(500, 'Failed to make authenticated API call'));
+    }
+  }
+
+  /**
+   * POST /api/voice/webhooks/elevenlabs/:token
+   * ElevenLabs webhook receiver (static secret in path)
+   */
+  public async elevenLabsWebhook(req: Request, res: Response): Promise<void> {
+    try {
+      const { token } = req.params;
+      const expected = process.env.ELEVENLABS_WEBHOOK_TOKEN;
+      if (!expected || token !== expected) {
+        res.status(401).json({ success: false, error: 'unauthorized' });
+        return;
+      }
+
+      // Raw payload from ElevenLabs
+      const payload = req.body;
+      logger.info('elevenlabs_webhook_received', { keys: Object.keys(payload || {}) });
+
+      // Just echo back minimal ack for now
+      res.json({ success: true });
+    } catch (error) {
+      logger.error('elevenLabsWebhook_error', { error: error instanceof Error ? error.message : 'unknown' });
+      res.status(500).json({ success: false, error: 'webhook processing failed' });
     }
   }
 }
