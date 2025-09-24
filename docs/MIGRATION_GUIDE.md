@@ -65,6 +65,7 @@ const startElevenLabsConversation = async (confirmedUser?: User) => {
       agentId,
       conversationId
     );
+    // Note: sessionId is now the ElevenLabs conversation id (conv_*)
 
     // conversationData now contains:
     // - token: WebRTC JWT token for direct connection
@@ -101,7 +102,7 @@ const startElevenLabsConversation = async (confirmedUser?: User) => {
 
     console.log("✅ Started ElevenLabs conversation:", elevenLabsConversationId);
     startVoiceTimer();
-    return sessionId;
+    return sessionId; // conv_*
 
   } catch (error) {
     console.error("❌ Failed to start ElevenLabs conversation:", error);

@@ -160,11 +160,11 @@ sequenceDiagram
     VS->>RA: GET /client/profile (optional)
     RA-->>VS: User profile data
     VS->>VS: Validate agent & check usage limits
-    VS->>VS: Create session in SessionManager
     VS->>EL: GET /v1/convai/conversation/token?agent_id=X
     EL-->>VS: WebRTC token + configuration
+    VS->>VS: Extract conv_* from JWT, create session with conv_* id
     VS->>VS: Prepare dynamic variables (user context)
-    VS-->>C: { sessionId, token, dynamicVariables }
+    VS-->>C: { sessionId: conv_*, token, dynamicVariables }
     
     Note over C,WR: 🎤 VOICE PHASE (Data Plane - Direct)
     C->>WR: Start WebRTC session (DIRECT to ElevenLabs)
@@ -172,7 +172,7 @@ sequenceDiagram
     WR-->>C: Real-time AI responses
     
     Note over C,WR: 🔄 SESSION TRACKING (Control Plane)
-    C->>VS: POST /api/voice/conversations/:id/end
+    C->>VS: POST /api/voice/conversations/:id/end (id = conv_*)
     VS->>VS: Calculate duration & update usage
     VS->>VS: Clean up session data
     VS-->>C: Session summary
@@ -205,9 +205,9 @@ GET    /api/voice/agents/:agentId     # Get specific agent info
 
 ### Conversation Management
 ```http
-POST   /api/voice/conversations/start          # Start conversation
-POST   /api/voice/conversations/:id/end        # End conversation
-GET    /api/voice/conversations/:id/status     # Get conversation status
+POST   /api/voice/conversations/start          # Start conversation (returns sessionId = ElevenLabs conv_*)
+POST   /api/voice/conversations/:id/end        # End conversation (id = ElevenLabs conv_*)
+GET    /api/voice/conversations/:id/status     # Get conversation status (id = ElevenLabs conv_*)
 ```
 
 ### Session Management
@@ -410,6 +410,7 @@ const { sessionId, conversationData } = await client.startConversation(
   'agent_1',
   'conversation_123'
 );
+// sessionId is ElevenLabs conversation id, e.g. "conv_abc123..."
 
 // Use the WebRTC token for DIRECT ElevenLabs connection
 // (No ElevenLabs SDK required - implement WebRTC directly)
@@ -420,6 +421,7 @@ const webrtcConnection = await establishDirectWebRTC({
 });
 
 // End conversation
+// Pass conv_* id returned as sessionId
 await client.endConversation(sessionId);
 ```
 
