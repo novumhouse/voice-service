@@ -16,6 +16,7 @@ sequenceDiagram
     VS->>EL: GET /v1/convai/conversation/token
     EL->>VS: WebRTC Token + Agent Config
     VS->>C: Token + Dynamic Variables
+    Note over VS: Extract conv_* from JWT; session.id = conv_*
     
     Note over C,WR: 2. VOICE PHASE (Data Plane - Direct Connection)
     C->>WR: Start WebRTC Session (Direct to ElevenLabs)
@@ -24,7 +25,7 @@ sequenceDiagram
     WR-->>C: AI Agent Responses
     
     Note over C,WR: 3. CLEANUP PHASE (Control Plane)
-    C->>VS: POST /api/voice/conversations/end
+    C->>VS: POST /api/voice/conversations/:id/end (id = conv_*)
     VS->>VS: Track Usage & Cleanup
 ```
 
@@ -54,6 +55,7 @@ const { sessionId, conversationData } = await voiceServiceClient.startConversati
   'agent_1',
   'conversation_123'
 );
+// sessionId is ElevenLabs conversation id (conv_*)
 
 // conversationData contains:
 // {
@@ -181,7 +183,7 @@ const webrtcConnection = await establishDirectWebRTC({
 
 ```typescript
 // 3. End conversation tracking (while WebRTC may still be active)
-await voiceServiceClient.endConversation(sessionId);
+await voiceServiceClient.endConversation(sessionId); // pass conv_*
 
 // 4. Close WebRTC connection directly
 await conversation.endSession();
