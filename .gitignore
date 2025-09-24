@@ -100,3 +100,5 @@ jspm_packages/
 
 # TernJS port file
 .tern-port.env
+
+src/db/ca-certificate.crt
